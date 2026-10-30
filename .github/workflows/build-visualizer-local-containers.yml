@@ -44,13 +44,16 @@ jobs:
           version: 10.26.2
           run_install: false
 
+      - name: Install frontend dependencies
+        run: pnpm install --no-frozen-lockfile
+
       - name: Build Portainer from source
         env:
           PLATFORM: linux
           ARCH: ${{ matrix.arch }}
           SKIP_GO_GET: "true"
         run: |
-          make ENV=production tidy deps build-server build-client build-storybook
+          make ENV=production tidy build-server build-client build-storybook
 
       - name: Set build timestamp
         id: buildmeta

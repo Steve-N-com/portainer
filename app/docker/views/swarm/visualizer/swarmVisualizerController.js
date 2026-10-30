@@ -6,13 +6,16 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
   'NodeService',
   'ServiceService',
   'TaskService',
+  'ContainerService',
+  'EndpointProvider',
   'Notifications',
   'LocalStorage',
-  function ($q, $scope, $document, $interval, NodeService, ServiceService, TaskService, Notifications, LocalStorage) {
+  function ($q, $scope, $document, $interval, NodeService, ServiceService, TaskService, ContainerService, EndpointProvider, Notifications, LocalStorage) {
     $scope.state = {
       ShowInformationPanel: true,
       DisplayOnlyRunningTasks: false,
       DisplayNodeLabels: false,
+      DisplayStandaloneContainers: true,
       refreshRate: '5',
     };
 
@@ -27,6 +30,13 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       $scope.$evalAsync(() => {
         $scope.state.DisplayNodeLabels = enabled;
         $scope.changeDisplayNodeLabels();
+      });
+    };
+
+    $scope.handleChangeDisplayStandaloneContainers = function handleChangeDisplayStandaloneContainers(enabled) {
+      $scope.$evalAsync(() => {
+        $scope.state.DisplayStandaloneContainers = enabled;
+        $scope.changeDisplayStandaloneContainers();
       });
     };
 
@@ -49,6 +59,10 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       LocalStorage.storeSwarmVisualizerSettings('display_node_labels', value);
     };
 
+    $scope.changeDisplayStandaloneContainers = function () {
+      LocalStorage.storeSwarmVisualizerSettings('display_standalone_containers', $scope.state.DisplayStandaloneContainers);
+    };
+
     $scope.changeUpdateRepeater = function () {
       stopRepeater();
       setUpdateRepeater();
@@ -64,23 +78,29 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       }
     }
 
+    function getClusterData() {
+      return $q.all({
+        nodes: NodeService.nodes(),
+        services: ServiceService.services(),
+        tasks: TaskService.tasks(),
+        containers: ContainerService.containers(EndpointProvider.endpointID(), { all: true }),
+      });
+    }
+
+    function updateVisualizer(data) {
+      var nodes = data.nodes;
+      $scope.nodes = nodes;
+      $scope.services = data.services;
+      $scope.tasks = data.tasks;
+      $scope.containers = data.containers || [];
+      prepareVisualizerData(nodes, data.services, data.tasks, $scope.containers);
+    }
+
     function setUpdateRepeater() {
       var refreshRate = $scope.state.refreshRate;
       $scope.repeater = $interval(function () {
-        $q.all({
-          nodes: NodeService.nodes(),
-          services: ServiceService.services(),
-          tasks: TaskService.tasks(),
-        })
-          .then(function success(data) {
-            var nodes = data.nodes;
-            $scope.nodes = nodes;
-            var services = data.services;
-            $scope.services = services;
-            var tasks = data.tasks;
-            $scope.tasks = tasks;
-            prepareVisualizerData(nodes, services, tasks);
-          })
+        getClusterData()
+          .then(updateVisualizer)
           .catch(function error(err) {
             stopRepeater();
             Notifications.error('Failure', err, 'Unable to retrieve cluster information');
@@ -117,11 +137,39 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       }
     }
 
-    function prepareVisualizerData(nodes, services, tasks) {
+    function assignStandaloneContainersToNode(nodes, containers) {
+      nodes.forEach(function (node) {
+        node.Containers = [];
+      });
+
+      containers.forEach(function (container) {
+        // Swarm service containers are already represented by their Swarm tasks.
+        if ((container.Labels || {})['com.docker.swarm.service.id']) {
+          return;
+        }
+
+        var nodeName = (container.NodeName || '').toLowerCase();
+        if (!nodeName) {
+          return;
+        }
+
+        var node = nodes.find(function (candidate) {
+          return [candidate.Hostname, candidate.Name].some(function (name) {
+            return name && name.toLowerCase() === nodeName;
+          });
+        });
+        if (node) {
+          node.Containers.push(container);
+        }
+      });
+    }
+
+    function prepareVisualizerData(nodes, services, tasks, containers) {
       var visualizerData = {};
 
       assignServiceInfo(services, tasks);
       assignTasksToNode(nodes, tasks);
+      assignStandaloneContainersToNode(nodes, containers || []);
 
       visualizerData.nodes = nodes;
       $scope.visualizerData = visualizerData;
@@ -137,24 +185,17 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       var displayNodeLabels = LocalStorage.getSwarmVisualizerSettings('display_node_labels');
       if (displayNodeLabels !== undefined && displayNodeLabels !== null) $scope.state.DisplayNodeLabels = displayNodeLabels;
 
+      var displayStandaloneContainers = LocalStorage.getSwarmVisualizerSettings('display_standalone_containers');
+      if (displayStandaloneContainers !== undefined && displayStandaloneContainers !== null) $scope.state.DisplayStandaloneContainers = displayStandaloneContainers;
+
       var refreshRate = LocalStorage.getSwarmVisualizerSettings('refresh_rate');
       if (refreshRate !== undefined && refreshRate !== null) $scope.state.refreshRate = refreshRate;
     }
 
     function initView() {
-      $q.all({
-        nodes: NodeService.nodes(),
-        services: ServiceService.services(),
-        tasks: TaskService.tasks(),
-      })
+      getClusterData()
         .then(function success(data) {
-          var nodes = data.nodes;
-          $scope.nodes = nodes;
-          var services = data.services;
-          $scope.services = services;
-          var tasks = data.tasks;
-          $scope.tasks = tasks;
-          prepareVisualizerData(nodes, services, tasks);
+          updateVisualizer(data);
           setUpdateRepeater();
         })
         .catch(function error(err) {

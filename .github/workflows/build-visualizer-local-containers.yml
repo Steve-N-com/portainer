@@ -37,13 +37,12 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 22.22.1
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Activate pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.26.2 --activate
+      
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.2
+          run_install: false
 
       - name: Build Portainer from source
         env:

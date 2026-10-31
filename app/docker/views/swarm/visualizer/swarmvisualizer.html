@@ -140,8 +140,8 @@
                   <span class="label label-info">Standalone</span>
                 </div>
                 <div>Image: {{ container.Image | hideshasum }}</div>
-                <div>Status: <span class="label label-{{ container.State | containerstatusbadge }}">{{ container.StatusText }}</span></div>
-                <div>Created: {{ container.Created * 1000 | date:'medium' }}</div>
+                <div>Status: {{ container.StatusText }}</div>
+                <div>Created: {{ container.Created * 1000 | getisodate }}</div>
               </div>
             </div>
           </div>

@@ -137,14 +137,24 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       }
     }
 
-    function assignStandaloneContainersToNode(nodes, containers) {
+    function assignStandaloneContainersToNode(nodes, containers, tasks) {
       nodes.forEach(function (node) {
         node.Containers = [];
       });
 
+      // Use the task container IDs as the authoritative exclusion list. Swarm
+      // container labels are not consistently present in every Agent response.
+      var taskContainerIds = (tasks || [])
+        .map(function (task) {
+          return task.Status && task.Status.ContainerStatus && task.Status.ContainerStatus.ContainerID;
+        })
+        .filter(Boolean);
+
       containers.forEach(function (container) {
+        var labels = container.Labels || {};
+
         // Swarm service containers are already represented by their Swarm tasks.
-        if ((container.Labels || {})['com.docker.swarm.service.id']) {
+        if (labels['com.docker.swarm.service.id'] || labels['com.docker.swarm.task.id'] || taskContainerIds.indexOf(container.Id) !== -1) {
           return;
         }
 
@@ -169,7 +179,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
 
       assignServiceInfo(services, tasks);
       assignTasksToNode(nodes, tasks);
-      assignStandaloneContainersToNode(nodes, containers || []);
+      assignStandaloneContainersToNode(nodes, containers || [], tasks || []);
       $scope.hasStandaloneContainers = nodes.some(function (node) {
         return node.Containers.length > 0;
       });

@@ -170,6 +170,9 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       assignServiceInfo(services, tasks);
       assignTasksToNode(nodes, tasks);
       assignStandaloneContainersToNode(nodes, containers || []);
+      $scope.hasStandaloneContainers = nodes.some(function (node) {
+        return node.Containers.length > 0;
+      });
 
       visualizerData.nodes = nodes;
       $scope.visualizerData = visualizerData;

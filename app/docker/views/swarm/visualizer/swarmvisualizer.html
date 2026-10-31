@@ -25,6 +25,10 @@
               <td>Tasks</td>
               <td>{{ tasks.length }}</td>
             </tr>
+            <tr>
+              <td>Containers</td>
+              <td>{{ containers.length }}</td>
+            </tr>
           </tbody>
         </table>
         <form class="form-horizontal">
@@ -46,6 +50,16 @@
                 checked="state.DisplayNodeLabels"
                 label="'Display node labels'"
                 on-change="(handleChangeDisplayNodeLabels)"
+              ></por-switch-field>
+            </div>
+          </div>
+          <div class="form-group" ng-if="hasStandaloneContainers">
+            <div class="col-sm-12">
+              <por-switch-field
+                label-class="'col-sm-2'"
+                checked="state.DisplayStandaloneContainers"
+                label="'Display standalone containers'"
+                on-change="(handleChangeDisplayStandaloneContainers)"
               ></por-switch-field>
             </div>
           </div>
@@ -114,6 +128,20 @@
                 <div>Update: {{ task.Updated | getisodate }}</div>
                 <div ng-if="task.Spec.Resources.Limits.MemoryBytes">Memory limit: {{ task.Spec.Resources.Limits.MemoryBytes | humansize: 2 : 2 }}</div>
                 <div ng-if="task.Spec.Resources.Limits.NanoCPUs">CPU limit: {{ task.Spec.Resources.Limits.NanoCPUs / 1000000000 }}</div>
+              </div>
+              <div
+                class="task task_info"
+                style="border: 2px dashed var(--blue-2)"
+                ng-if="state.DisplayStandaloneContainers"
+                ng-repeat="container in node.Containers | orderBy: 'Names[0]'"
+              >
+                <div class="service_name">
+                  {{ container.Names[0] }}
+                  <span class="label label-info">Standalone</span>
+                </div>
+                <div>Image: {{ container.Image | hideshasum }}</div>
+                <div>Status: {{ container.StatusText }}</div>
+                <div>Created: {{ container.Created * 1000 | getisodate }}</div>
               </div>
             </div>
           </div>

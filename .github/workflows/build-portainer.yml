@@ -1,9 +1,10 @@
-name: Build Portainer CE - snc-develop
+name: Build Portainer CE
 
 on:
   push:
     branches:
       - snc-develop
+      - 'feat/**'
   workflow_dispatch:
 
 permissions:
@@ -99,13 +100,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+        id: extract_branch
+
       - name: Create multi-platform image tags
         env:
           IMAGE: ${{ env.IMAGE_NAME }}
           GIT_SHA: ${{ github.sha }}
         run: |
           docker buildx imagetools create \
-            --tag "$IMAGE:snc-develop" \
+            --tag "$IMAGE:${{ steps.extract_branch.outputs.branch }}" \
             --tag "$IMAGE:sha-$GIT_SHA" \
             "$IMAGE:sha-$GIT_SHA-amd64" \
             "$IMAGE:sha-$GIT_SHA-arm64"

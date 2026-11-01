@@ -1,3 +1,13 @@
+<style>
+  .node_metric_gauges { display: flex; gap: 10px; margin: 8px 0; }
+  .node_metric_gauge { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .metric_gauge { width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: conic-gradient(#e5e7eb 100%, #e5e7eb 0); position: relative; }
+  .metric_gauge::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: var(--visualizer-node-background, #fff); }
+  .metric_gauge span { position: relative; z-index: 1; font-size: 11px; font-weight: 600; }
+  .metric_gauge_unavailable { background: #e5e7eb !important; }
+  .metric_gauge_label { font-size: 11px; color: var(--text-muted, #777); }
+</style>
+
 <page-header title="'Swarm visualizer'" breadcrumbs="[{label:'Swarm', link:'docker.swarm'}, {label:'Cluster visualizer', link:'docker.swarm.visualizer'}]" reload="true">
 </page-header>
 
@@ -65,6 +75,29 @@
           </div>
         </form>
         <form class="form-horizontal">
+          <div class="col-sm-12 form-section-title"> Prometheus node metrics </div>
+          <div class="form-group">
+            <label for="prometheusUrl" class="col-sm-2 control-label text-left">Prometheus URL</label>
+            <div class="col-sm-6">
+              <input id="prometheusUrl" type="url" class="form-control" ng-model="state.prometheusUrl" placeholder="http://prometheus:9090" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="prometheusNodeLabel" class="col-sm-2 control-label text-left">Node label</label>
+            <div class="col-sm-4">
+              <input id="prometheusNodeLabel" type="text" class="form-control" ng-model="state.prometheusNodeLabel" placeholder="swarm_node" />
+            </div>
+            <div class="col-sm-3">
+              <button type="button" class="btn btn-sm btn-primary" ng-click="savePrometheusSettings()">Save metrics settings</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="col-sm-12 small text-muted">
+              Expects Node Exporter metrics scraped by Prometheus and a target label (default: swarm_node) whose value matches the Swarm node hostname. CPU is the 5-minute non-idle rate; memory is used memory excluding available memory.
+            </div>
+          </div>
+        </form>
+        <form class="form-horizontal">
           <div class="col-sm-12 form-section-title"> Refresh rate </div>
           <div class="form-group">
             <label for="refreshRate" class="col-sm-2 margin-sm-top control-label text-left">
@@ -103,8 +136,22 @@
                 </div>
               </div>
               <div>{{ node.Role }}</div>
-              <div>CPU: {{ node.CPUs / 1000000000 }}</div>
-              <div>Memory: {{ node.Memory | humansize: 2 }}</div>
+              <div class="node_metric_gauges" ng-if="state.prometheusUrl">
+                <div class="node_metric_gauge" ng-if="node.Metrics">
+                  <div class="metric_gauge" ng-class="{ 'metric_gauge_unavailable': node.Metrics.cpu === null }" ng-style="node.Metrics.cpu !== null && { 'background': 'conic-gradient(#2d9cdb ' + node.Metrics.cpu + '%, #e5e7eb 0)' }">
+                    <span>{{ node.Metrics.cpu === null ? '--' : (node.Metrics.cpu | number:0) + '%' }}</span>
+                  </div>
+                  <span class="metric_gauge_label">CPU</span>
+                </div>
+                <div class="node_metric_gauge" ng-if="node.Metrics">
+                  <div class="metric_gauge" ng-class="{ 'metric_gauge_unavailable': node.Metrics.memory === null }" ng-style="node.Metrics.memory !== null && { 'background': 'conic-gradient(#27ae60 ' + node.Metrics.memory + '%, #e5e7eb 0)' }">
+                    <span>{{ node.Metrics.memory === null ? '--' : (node.Metrics.memory | number:0) + '%' }}</span>
+                  </div>
+                  <span class="metric_gauge_label">Memory</span>
+                </div>
+              </div>
+              <div>CPU capacity: {{ node.CPUs / 1000000000 }}</div>
+              <div>Memory capacity: {{ node.Memory | humansize: 2 }}</div>
               <div
                 ><span class="label label-{{ node.Status | nodestatusbadge }}">{{ node.Status }}</span></div
               >

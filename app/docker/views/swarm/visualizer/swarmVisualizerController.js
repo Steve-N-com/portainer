@@ -1,5 +1,6 @@
 angular.module('portainer.docker').controller('SwarmVisualizerController', [
   '$q',
+  '$http',
   '$scope',
   '$document',
   '$interval',
@@ -10,13 +11,16 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
   'EndpointProvider',
   'Notifications',
   'LocalStorage',
-  function ($q, $scope, $document, $interval, NodeService, ServiceService, TaskService, ContainerService, EndpointProvider, Notifications, LocalStorage) {
+  function ($q, $http, $scope, $document, $interval, NodeService, ServiceService, TaskService, ContainerService, EndpointProvider, Notifications, LocalStorage) {
     $scope.state = {
       ShowInformationPanel: true,
       DisplayOnlyRunningTasks: false,
       DisplayNodeLabels: false,
       DisplayStandaloneContainers: true,
       refreshRate: '5',
+      prometheusUrl: '',
+      prometheusNodeLabel: 'swarm_node',
+      metricsError: '',
     };
 
     $scope.handleChangeDisplayOnlyRunningTasks = function handleChangeDisplayOnlyRunningTasks(enabled) {
@@ -59,6 +63,56 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       LocalStorage.storeSwarmVisualizerSettings('display_node_labels', value);
     };
 
+    $scope.savePrometheusSettings = function () {
+      $scope.state.prometheusUrl = ($scope.state.prometheusUrl || '').trim().replace(/\/$/, '');
+      $scope.state.prometheusNodeLabel = ($scope.state.prometheusNodeLabel || 'swarm_node').trim() || 'swarm_node';
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test($scope.state.prometheusNodeLabel)) {
+        $scope.state.prometheusNodeLabel = 'swarm_node';
+      }
+      LocalStorage.storeSwarmVisualizerSettings('prometheus_url', $scope.state.prometheusUrl);
+      LocalStorage.storeSwarmVisualizerSettings('prometheus_node_label', $scope.state.prometheusNodeLabel);
+      refreshNodeMetrics($scope.nodes || []);
+    };
+
+    function promLabelValue(value) {
+      return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    }
+
+    function queryPrometheus(query) {
+      return $http.get($scope.state.prometheusUrl + '/api/v1/query', { params: { query: query } }).then(function (response) {
+        var result = response.data && response.data.data && response.data.data.result;
+        if (!result || !result.length || !result[0].value) return null;
+        var value = Number(result[0].value[1]);
+        return isFinite(value) ? Math.max(0, Math.min(100, value)) : null;
+      });
+    }
+
+    function refreshNodeMetrics(nodes) {
+      var url = $scope.state.prometheusUrl;
+      if (!url || !nodes || !nodes.length) {
+        nodes && nodes.forEach(function (node) { node.Metrics = null; });
+        $scope.state.metricsError = '';
+        return $q.when();
+      }
+      var label = $scope.state.prometheusNodeLabel || 'swarm_node';
+      var requests = [];
+      nodes.forEach(function (node) {
+        var nodeName = node.Hostname || node.Name;
+        if (!nodeName) return;
+        var selector = label + '="' + promLabelValue(nodeName) + '"';
+        var cpuQuery = '100 * (1 - avg(rate(node_cpu_seconds_total{' + selector + ',mode="idle"}[5m])))';
+        var memoryQuery = '100 * (1 - (node_memory_MemAvailable_bytes{' + selector + '} / node_memory_MemTotal_bytes{' + selector + '}))';
+        requests.push($q.all([queryPrometheus(cpuQuery), queryPrometheus(memoryQuery)]).then(function (values) {
+          node.Metrics = { cpu: values[0], memory: values[1] };
+        }).catch(function () {
+          node.Metrics = { cpu: null, memory: null };
+        }));
+      });
+      return $q.all(requests).then(function () {
+        $scope.state.metricsError = '';
+      });
+    }
+
     $scope.changeDisplayStandaloneContainers = function () {
       LocalStorage.storeSwarmVisualizerSettings('display_standalone_containers', $scope.state.DisplayStandaloneContainers);
     };
@@ -93,6 +147,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       $scope.tasks = data.tasks;
       $scope.containers = data.containers || [];
       prepareVisualizerData(data.nodes, data.services, data.tasks, $scope.containers);
+      refreshNodeMetrics(data.nodes);
     }
 
     function setUpdateRepeater() {
@@ -202,6 +257,10 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
 
       var refreshRate = LocalStorage.getSwarmVisualizerSettings('refresh_rate');
       if (refreshRate !== undefined && refreshRate !== null) $scope.state.refreshRate = refreshRate;
+      var prometheusUrl = LocalStorage.getSwarmVisualizerSettings('prometheus_url');
+      if (prometheusUrl !== undefined && prometheusUrl !== null) $scope.state.prometheusUrl = prometheusUrl;
+      var prometheusNodeLabel = LocalStorage.getSwarmVisualizerSettings('prometheus_node_label');
+      if (prometheusNodeLabel !== undefined && prometheusNodeLabel !== null) $scope.state.prometheusNodeLabel = prometheusNodeLabel;
     }
 
     function initView() {

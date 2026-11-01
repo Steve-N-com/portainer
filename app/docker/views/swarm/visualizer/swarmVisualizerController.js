@@ -54,7 +54,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     };
 
     $scope.savePrometheusSettings = function () {
-      $scope.state.prometheusUrl = ($scope.state.prometheusUrl || '').trim().replace(/\\/$/, '');
+      $scope.state.prometheusUrl = ($scope.state.prometheusUrl || '').trim().replace(/\/$/, '');
       $scope.state.prometheusNodeLabel = ($scope.state.prometheusNodeLabel || 'swarm_node').trim() || 'swarm_node';
       LocalStorage.storeSwarmVisualizerSettings('prometheus_url', $scope.state.prometheusUrl);
       LocalStorage.storeSwarmVisualizerSettings('prometheus_node_label', $scope.state.prometheusNodeLabel);
@@ -62,7 +62,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     };
 
     function promLabelValue(value) {
-      return String(value || '').replace(/\\/g, '\\\\\\\\').replace(/"/g, '\\\\"').replace(/\n/g, '\\\\n');
+      return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
     }
 
     function queryPrometheus(query) {

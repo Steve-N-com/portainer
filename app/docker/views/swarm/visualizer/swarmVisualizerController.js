@@ -56,6 +56,9 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     $scope.savePrometheusSettings = function () {
       $scope.state.prometheusUrl = ($scope.state.prometheusUrl || '').trim().replace(/\/$/, '');
       $scope.state.prometheusNodeLabel = ($scope.state.prometheusNodeLabel || 'swarm_node').trim() || 'swarm_node';
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test($scope.state.prometheusNodeLabel)) {
+        $scope.state.prometheusNodeLabel = 'swarm_node';
+      }
       LocalStorage.storeSwarmVisualizerSettings('prometheus_url', $scope.state.prometheusUrl);
       LocalStorage.storeSwarmVisualizerSettings('prometheus_node_label', $scope.state.prometheusNodeLabel);
       refreshNodeMetrics($scope.nodes || []);

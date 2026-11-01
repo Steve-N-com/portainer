@@ -118,24 +118,27 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       }
     }
 
+    function getClusterData() {
+      return $q.all({
+        nodes: NodeService.nodes(),
+        services: ServiceService.services(),
+        tasks: TaskService.tasks(),
+      });
+    }
+
+    function updateVisualizer(data) {
+      $scope.nodes = data.nodes;
+      $scope.services = data.services;
+      $scope.tasks = data.tasks;
+      prepareVisualizerData(data.nodes, data.services, data.tasks);
+      refreshNodeMetrics(data.nodes);
+    }
+
     function setUpdateRepeater() {
       var refreshRate = $scope.state.refreshRate;
       $scope.repeater = $interval(function () {
-        $q.all({
-          nodes: NodeService.nodes(),
-          services: ServiceService.services(),
-          tasks: TaskService.tasks(),
-        })
-          .then(function success(data) {
-            var nodes = data.nodes;
-            $scope.nodes = nodes;
-            var services = data.services;
-            $scope.services = services;
-            var tasks = data.tasks;
-            $scope.tasks = tasks;
-            prepareVisualizerData(nodes, services, tasks);
-            refreshNodeMetrics(nodes);
-          })
+        getClusterData()
+          .then(updateVisualizer)
           .catch(function error(err) {
             stopRepeater();
             Notifications.error('Failure', err, 'Unable to retrieve cluster information');
@@ -201,20 +204,9 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     }
 
     function initView() {
-      $q.all({
-        nodes: NodeService.nodes(),
-        services: ServiceService.services(),
-        tasks: TaskService.tasks(),
-      })
+      getClusterData()
         .then(function success(data) {
-          var nodes = data.nodes;
-          $scope.nodes = nodes;
-          var services = data.services;
-          $scope.services = services;
-          var tasks = data.tasks;
-          $scope.tasks = tasks;
-          prepareVisualizerData(nodes, services, tasks);
-          refreshNodeMetrics(nodes);
+          updateVisualizer(data);
           setUpdateRepeater();
         })
         .catch(function error(err) {

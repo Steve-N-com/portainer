@@ -82,6 +82,16 @@
               Expects Node Exporter metrics scraped by Prometheus and a target label (default: swarm_node) whose value matches the Swarm node hostname. CPU is the 5-minute non-idle rate; memory is used memory excluding available memory. Disk I/O is the busiest disk's 5-minute busy percentage; Storage is the fullest eligible filesystem; Network is the busiest physical interface's receive/transmit utilization against its Node Exporter-reported link speed.
             </div>
           </div>
+          <div class="form-group" ng-if="state.metricsErrors.length">
+            <div class="col-sm-12">
+              <div class="alert alert-warning" role="alert">
+                <strong>Some node metrics could not be retrieved:</strong>
+                <ul class="margin-bottom-none">
+                  <li ng-repeat="error in state.metricsErrors track by $index">{{ error }}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </form>
         <form class="form-horizontal">
           <div class="col-sm-12 form-section-title"> Refresh rate </div>

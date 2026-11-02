@@ -93,9 +93,13 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
         var cpuQuery = '100 * (1 - avg(rate(node_cpu_seconds_total{' + selector + ',mode="idle"}[5m])))';
         var memoryQuery = '100 * (1 - (node_memory_MemAvailable_bytes{' + selector + '} / node_memory_MemTotal_bytes{' + selector + '}))';
         requests.push($q.all([queryPrometheus(cpuQuery), queryPrometheus(memoryQuery)]).then(function (values) {
-          node.Metrics = { cpu: values[0], memory: values[1] };
+          if (!node.Metrics) node.Metrics = {};
+          node.Metrics.cpu = values[0];
+          node.Metrics.memory = values[1];
         }).catch(function () {
-          node.Metrics = { cpu: null, memory: null };
+          if (!node.Metrics) node.Metrics = {};
+          node.Metrics.cpu = null;
+          node.Metrics.memory = null;
         }));
       });
       return $q.all(requests).then(function () {
@@ -126,12 +130,53 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       });
     }
 
+    // Reconcile API results into the existing arrays and objects. Keeping stable
+    // references allows ngRepeat to update changed bindings without recreating
+    // every node and task element on each polling cycle.
+    function syncCollection(existing, incoming, updateItem) {
+      var existingById = Object.create(null);
+      existing.forEach(function (item) {
+        if (item && item.Id !== undefined && item.Id !== null) {
+          existingById[String(item.Id)] = item;
+        }
+      });
+
+      var nextItems = [];
+      (incoming || []).forEach(function (incomingItem) {
+        var id = incomingItem && incomingItem.Id;
+        var existingItem = id !== undefined && id !== null ? existingById[String(id)] : null;
+        if (existingItem) {
+          updateItem(existingItem, incomingItem);
+          nextItems.push(existingItem);
+        } else {
+          nextItems.push(incomingItem);
+        }
+      });
+
+      existing.length = 0;
+      Array.prototype.push.apply(existing, nextItems);
+      return existing;
+    }
+
+    function updateNode(existingNode, incomingNode) {
+      var tasks = existingNode.Tasks;
+      var metrics = existingNode.Metrics;
+      angular.extend(existingNode, incomingNode);
+      existingNode.Tasks = tasks || [];
+      existingNode.Metrics = metrics;
+    }
+
     function updateVisualizer(data) {
-      $scope.nodes = data.nodes;
-      $scope.services = data.services;
-      $scope.tasks = data.tasks;
-      prepareVisualizerData(data.nodes, data.services, data.tasks);
-      refreshNodeMetrics(data.nodes);
+      $scope.nodes = syncCollection($scope.nodes || [], data.nodes, updateNode);
+      $scope.services = syncCollection($scope.services || [], data.services, function (existing, incoming) {
+        angular.extend(existing, incoming);
+      });
+      $scope.tasks = syncCollection($scope.tasks || [], data.tasks, function (existing, incoming) {
+        angular.extend(existing, incoming);
+      });
+
+      prepareVisualizerData($scope.nodes, $scope.services, $scope.tasks);
+      refreshNodeMetrics($scope.nodes);
     }
 
     function setUpdateRepeater() {
@@ -163,26 +208,34 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     function assignTasksToNode(nodes, tasks) {
       for (var i = 0; i < nodes.length; i++) {
         var node = nodes[i];
-        node.Tasks = [];
+        var nodeTasks = [];
 
         for (var j = 0; j < tasks.length; j++) {
           var task = tasks[j];
 
           if (task.NodeId === node.Id) {
-            node.Tasks.push(task);
+            nodeTasks.push(task);
           }
         }
+
+        node.Tasks = syncCollection(node.Tasks || [], nodeTasks, function (existing, incoming) {
+          // Tasks are already reconciled in $scope.tasks; retain their identity.
+          if (existing !== incoming) {
+            angular.extend(existing, incoming);
+          }
+        });
       }
     }
 
     function prepareVisualizerData(nodes, services, tasks) {
-      var visualizerData = {};
-
       assignServiceInfo(services, tasks);
       assignTasksToNode(nodes, tasks);
 
-      visualizerData.nodes = nodes;
-      $scope.visualizerData = visualizerData;
+      if (!$scope.visualizerData) {
+        $scope.visualizerData = { nodes: nodes };
+      } else {
+        $scope.visualizerData.nodes = nodes;
+      }
     }
 
     function loadState() {

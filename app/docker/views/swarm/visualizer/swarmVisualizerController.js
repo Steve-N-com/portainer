@@ -133,7 +133,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
         // Compare the busiest receive/transmit direction on each physical interface
         // with the interface speed exported by Node Exporter (bytes per second).
         var networkDevices = ',device!~"^(lo|docker.*|br-.*|veth.*|virbr.*|cni.*|flannel.*|weave.*|vxlan.*)$"';
-        var networkQuery = '100 * max(rate({__name__=~"node_network_(receive|transmit)_bytes_total",' + selector + networkDevices + '}[5m]) / on(device) (node_network_speed_bytes{' + selector + networkDevices + '} > 0))';
+        var networkQuery = '100 * max by (' + label + ') (max without (__name__) (rate({__name__=~"node_network_(receive|transmit)_bytes_total",' + selector + networkDevices + '}[5m])) / on(device,' + label + ') (node_network_speed_bytes{' + selector + networkDevices + '} > 0))';
         requests.push($q.all([
           queryNodeMetric(cpuQuery, 'CPU', nodeName),
           queryNodeMetric(memoryQuery, 'memory', nodeName),

@@ -17,7 +17,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       refreshRate: '5',
       prometheusUrl: '',
       prometheusNodeLabel: 'swarm_node',
-      metricsError: '',
+      metricsErrors: [],
     };
 
     $scope.handleChangeDisplayOnlyRunningTasks = function handleChangeDisplayOnlyRunningTasks(enabled) {
@@ -70,7 +70,10 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
 
     function queryPrometheus(query) {
       return $http.get($scope.state.prometheusUrl + '/api/v1/query', { params: { query: query } }).then(function (response) {
-        var result = response.data && response.data.data && response.data.data.result;
+        if (!response.data || response.data.status !== 'success') {
+          throw new Error(response.data && response.data.error || 'Prometheus returned an unsuccessful response');
+        }
+        var result = response.data.data && response.data.data.result;
         if (!result || !result.length || !result[0].value) return null;
         var value = Number(result[0].value[1]);
         return isFinite(value) ? Math.max(0, Math.min(100, value)) : null;
@@ -79,16 +82,27 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
 
     // Keep metric queries independent: a missing metric or a failed Prometheus
     // request must not prevent the other gauges from being updated.
+    function reportMetricIssue(metricName, nodeName, message, error) {
+      var description = nodeName + ': ' + metricName + ' - ' + message;
+      var existing = $scope.state.metricsErrors || [];
+      if (!existing.some(function (item) { return item === description; })) {
+        existing.push(description);
+      }
+      $scope.state.metricsErrors = existing;
+      if (window.console && window.console.error) {
+        window.console.error('[Swarm visualizer] ' + description, error || '');
+      }
+    }
+
     function queryNodeMetric(query, metricName, nodeName) {
       return queryPrometheus(query).then(function (value) {
-        if (value === null && window.console && window.console.warn) {
-          window.console.warn('[Swarm visualizer] No Prometheus data for ' + metricName + ' on node ' + nodeName);
+        if (value === null) {
+          reportMetricIssue(metricName, nodeName, 'Prometheus returned no matching time series (check the node label and whether the required Node Exporter metric is being scraped)');
         }
         return value;
       }).catch(function (error) {
-        if (window.console && window.console.error) {
-          window.console.error('[Swarm visualizer] Failed to retrieve ' + metricName + ' for node ' + nodeName, error);
-        }
+        var message = error && error.message ? error.message : 'Prometheus request failed';
+        reportMetricIssue(metricName, nodeName, message, error);
         return null;
       });
     }
@@ -97,9 +111,10 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       var url = $scope.state.prometheusUrl;
       if (!url || !nodes || !nodes.length) {
         nodes && nodes.forEach(function (node) { node.Metrics = null; });
-        $scope.state.metricsError = '';
+        $scope.state.metricsErrors = [];
         return $q.when();
       }
+      $scope.state.metricsErrors = [];
       var label = $scope.state.prometheusNodeLabel || 'swarm_node';
       var requests = [];
       nodes.forEach(function (node) {
@@ -131,9 +146,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
           node.Metrics.network = values[4];
         }));
       });
-      return $q.all(requests).then(function () {
-        $scope.state.metricsError = '';
-      });
+      return $q.all(requests);
     }
 
     $scope.changeUpdateRepeater = function () {

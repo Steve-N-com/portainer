@@ -1,7 +1,7 @@
 <style>
-  .node_metric_gauges { display: flex; gap: 10px; margin: 8px 0; }
-  .node_metric_gauge { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-  .metric_gauge { width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: conic-gradient(#e5e7eb 100%, #e5e7eb 0); position: relative; }
+  .node_metric_gauges { display: flex; flex-wrap: nowrap; gap: 8px; margin: 8px 0; }
+  .node_metric_gauge { display: flex; flex: 1 1 0; min-width: 0; flex-direction: column; align-items: center; gap: 3px; }
+  .metric_gauge { width: 48px; height: 48px; max-width: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: conic-gradient(#e5e7eb 100%, #e5e7eb 0); position: relative; }
   .metric_gauge::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: var(--visualizer-node-background, #fff); }
   .metric_gauge span { position: relative; z-index: 1; font-size: 11px; font-weight: 600; }
   .metric_gauge_unavailable { background: #e5e7eb !important; }
@@ -79,7 +79,7 @@
           </div>
           <div class="form-group">
             <div class="col-sm-12 small text-muted">
-              Expects Node Exporter metrics scraped by Prometheus and a target label (default: swarm_node) whose value matches the Swarm node hostname. CPU is the 5-minute non-idle rate; memory is used memory excluding available memory.
+              Expects Node Exporter metrics scraped by Prometheus and a target label (default: swarm_node) whose value matches the Swarm node hostname. CPU is the 5-minute non-idle rate; memory is used memory excluding available memory. Disk I/O is the busiest disk's 5-minute busy percentage; Storage is the fullest eligible filesystem; Network is the busiest physical interface's receive/transmit utilization against its Node Exporter-reported link speed.
             </div>
           </div>
         </form>
@@ -134,6 +134,24 @@
                     <span>{{ node.Metrics.memory === null ? '--' : (node.Metrics.memory | number:0) + '%' }}</span>
                   </div>
                   <span class="metric_gauge_label">Memory</span>
+                </div>
+                <div class="node_metric_gauge" ng-if="node.Metrics">
+                  <div class="metric_gauge" ng-class="{ 'metric_gauge_unavailable': node.Metrics.disk === null }" ng-style="node.Metrics.disk !== null && { 'background': 'conic-gradient(#d97706 ' + node.Metrics.disk + '%, #e5e7eb 0)' }">
+                    <span>{{ node.Metrics.disk === null ? '--' : (node.Metrics.disk | number:0) + '%' }}</span>
+                  </div>
+                  <span class="metric_gauge_label">Disk I/O</span>
+                </div>
+                <div class="node_metric_gauge" ng-if="node.Metrics">
+                  <div class="metric_gauge" ng-class="{ 'metric_gauge_unavailable': node.Metrics.storage === null }" ng-style="node.Metrics.storage !== null && { 'background': 'conic-gradient(#8b5cf6 ' + node.Metrics.storage + '%, #e5e7eb 0)' }">
+                    <span>{{ node.Metrics.storage === null ? '--' : (node.Metrics.storage | number:0) + '%' }}</span>
+                  </div>
+                  <span class="metric_gauge_label">Storage</span>
+                </div>
+                <div class="node_metric_gauge" ng-if="node.Metrics">
+                  <div class="metric_gauge" ng-class="{ 'metric_gauge_unavailable': node.Metrics.network === null }" ng-style="node.Metrics.network !== null && { 'background': 'conic-gradient(#0d9488 ' + node.Metrics.network + '%, #e5e7eb 0)' }">
+                    <span>{{ node.Metrics.network === null ? '--' : (node.Metrics.network | number:0) + '%' }}</span>
+                  </div>
+                  <span class="metric_gauge_label">Network</span>
                 </div>
               </div>
               <div>CPU capacity: {{ node.CPUs / 1000000000 }}</div>

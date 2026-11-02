@@ -77,6 +77,22 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       });
     }
 
+    // Keep metric queries independent: a missing metric or a failed Prometheus
+    // request must not prevent the other gauges from being updated.
+    function queryNodeMetric(query, metricName, nodeName) {
+      return queryPrometheus(query).then(function (value) {
+        if (value === null && window.console && window.console.warn) {
+          window.console.warn('[Swarm visualizer] No Prometheus data for ' + metricName + ' on node ' + nodeName);
+        }
+        return value;
+      }).catch(function (error) {
+        if (window.console && window.console.error) {
+          window.console.error('[Swarm visualizer] Failed to retrieve ' + metricName + ' for node ' + nodeName, error);
+        }
+        return null;
+      });
+    }
+
     function refreshNodeMetrics(nodes) {
       var url = $scope.state.prometheusUrl;
       if (!url || !nodes || !nodes.length) {
@@ -101,11 +117,11 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
         var networkDevices = ',device!~"^(lo|docker.*|br-.*|veth.*|virbr.*|cni.*|flannel.*|weave.*|vxlan.*)$"';
         var networkQuery = '100 * max(rate({__name__=~"node_network_(receive|transmit)_bytes_total",' + selector + networkDevices + '}[5m]) / on(device) (node_network_speed_bytes{' + selector + networkDevices + '} > 0))';
         requests.push($q.all([
-          queryPrometheus(cpuQuery),
-          queryPrometheus(memoryQuery),
-          queryPrometheus(diskQuery),
-          queryPrometheus(storageQuery),
-          queryPrometheus(networkQuery)
+          queryNodeMetric(cpuQuery, 'CPU', nodeName),
+          queryNodeMetric(memoryQuery, 'memory', nodeName),
+          queryNodeMetric(diskQuery, 'disk I/O', nodeName),
+          queryNodeMetric(storageQuery, 'storage', nodeName),
+          queryNodeMetric(networkQuery, 'network', nodeName)
         ]).then(function (values) {
           if (!node.Metrics) node.Metrics = {};
           node.Metrics.cpu = values[0];
@@ -113,13 +129,6 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
           node.Metrics.disk = values[2];
           node.Metrics.storage = values[3];
           node.Metrics.network = values[4];
-        }).catch(function () {
-          if (!node.Metrics) node.Metrics = {};
-          node.Metrics.cpu = null;
-          node.Metrics.memory = null;
-          node.Metrics.disk = null;
-          node.Metrics.storage = null;
-          node.Metrics.network = null;
         }));
       });
       return $q.all(requests).then(function () {

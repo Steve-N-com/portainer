@@ -102,14 +102,34 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
         var selector = label + '="' + promLabelValue(nodeName) + '"';
         var cpuQuery = '100 * (1 - avg(rate(node_cpu_seconds_total{' + selector + ',mode="idle"}[5m])))';
         var memoryQuery = '100 * (1 - (node_memory_MemAvailable_bytes{' + selector + '} / node_memory_MemTotal_bytes{' + selector + '}))';
-        requests.push($q.all([queryPrometheus(cpuQuery), queryPrometheus(memoryQuery)]).then(function (values) {
+        // Disk busy time is reported as a ratio (0-1) by Node Exporter.
+        var diskQuery = '100 * max(rate(node_disk_io_time_seconds_total{' + selector + ',device!~"^(loop|ram|fd|sr|zram).*"}[5m]))';
+        // Use the fullest real filesystem, excluding pseudo and container filesystems.
+        var storageQuery = '100 * max(1 - (node_filesystem_avail_bytes{' + selector + ',fstype!~"^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|rpc_pipefs|securityfs|squashfs|sysfs|tmpfs|tracefs)$",mountpoint!~"^/(run|var/lib/docker/.+|var/lib/containerd/.+)"} / node_filesystem_size_bytes{' + selector + ',fstype!~"^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|rpc_pipefs|securityfs|squashfs|sysfs|tmpfs|tracefs)$",mountpoint!~"^/(run|var/lib/docker/.+|var/lib/containerd/.+)"}))';
+        // Compare the busiest receive/transmit direction on each physical interface
+        // with the interface speed exported by Node Exporter (bytes per second).
+        var networkDevices = ',device!~"^(lo|docker.*|br-.*|veth.*|virbr.*|cni.*|flannel.*|weave.*|vxlan.*)$"';
+        var networkQuery = '100 * max(rate({__name__=~"node_network_(receive|transmit)_bytes_total",' + selector + networkDevices + '}[5m]) / on(device) (node_network_speed_bytes{' + selector + networkDevices + '} > 0))';
+        requests.push($q.all([
+          queryPrometheus(cpuQuery),
+          queryPrometheus(memoryQuery),
+          queryPrometheus(diskQuery),
+          queryPrometheus(storageQuery),
+          queryPrometheus(networkQuery)
+        ]).then(function (values) {
           if (!node.Metrics) node.Metrics = {};
           node.Metrics.cpu = values[0];
           node.Metrics.memory = values[1];
+          node.Metrics.disk = values[2];
+          node.Metrics.storage = values[3];
+          node.Metrics.network = values[4];
         }).catch(function () {
           if (!node.Metrics) node.Metrics = {};
           node.Metrics.cpu = null;
           node.Metrics.memory = null;
+          node.Metrics.disk = null;
+          node.Metrics.storage = null;
+          node.Metrics.network = null;
         }));
       });
       return $q.all(requests).then(function () {
@@ -143,6 +163,42 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
         tasks: TaskService.tasks(),
         containers: ContainerService.containers(EndpointProvider.endpointID(), { all: true }),
       });
+    }
+
+    // Reconcile API results into the existing arrays and objects. Keeping stable
+    // references allows ngRepeat to update changed bindings without recreating
+    // every node and task element on each polling cycle.
+    function syncCollection(existing, incoming, updateItem) {
+      var existingById = Object.create(null);
+      existing.forEach(function (item) {
+        if (item && item.Id !== undefined && item.Id !== null) {
+          existingById[String(item.Id)] = item;
+        }
+      });
+
+      var nextItems = [];
+      (incoming || []).forEach(function (incomingItem) {
+        var id = incomingItem && incomingItem.Id;
+        var existingItem = id !== undefined && id !== null ? existingById[String(id)] : null;
+        if (existingItem) {
+          updateItem(existingItem, incomingItem);
+          nextItems.push(existingItem);
+        } else {
+          nextItems.push(incomingItem);
+        }
+      });
+
+      existing.length = 0;
+      Array.prototype.push.apply(existing, nextItems);
+      return existing;
+    }
+
+    function updateNode(existingNode, incomingNode) {
+      var tasks = existingNode.Tasks;
+      var metrics = existingNode.Metrics;
+      angular.extend(existingNode, incomingNode);
+      existingNode.Tasks = tasks || [];
+      existingNode.Metrics = metrics;
     }
 
     // Reconcile API results into the existing arrays and objects. Keeping stable

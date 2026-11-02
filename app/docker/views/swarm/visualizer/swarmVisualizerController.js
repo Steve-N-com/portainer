@@ -97,7 +97,10 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     function queryNodeMetric(query, metricName, nodeName) {
       return queryPrometheus(query).then(function (value) {
         if (value === null) {
-          reportMetricIssue(metricName, nodeName, 'Prometheus returned no matching time series (check the node label and whether the required Node Exporter metric is being scraped)');
+          var hint = metricName === 'network'
+            ? 'Prometheus returned no matching time series. Check that node_network_receive_bytes_total, node_network_transmit_bytes_total and node_network_speed_bytes are scraped for this node, and that the interface speed is greater than zero.'
+            : 'Prometheus returned no matching time series. Check the node label and whether the required Node Exporter metric is being scraped.';
+          reportMetricIssue(metricName, nodeName, hint);
         }
         return value;
       }).catch(function (error) {

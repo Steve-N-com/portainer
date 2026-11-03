@@ -93,56 +93,56 @@
               <div>Memory: {{ node.Memory | humansize: 2 }}</div>
               <div><span class="label label-{{ node.Status | nodestatusbadge }}">{{ node.Status }}</span></div>
 
-              <div class="node_resource_allocation" ng-if="node.ResourceAllocation">
+              <div class="node_resource_allocation" ng-if="node.ResourceAllocation" style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #ddd;">
                 <b>Resource allocation</b>
-                <div class="resource_metric">
-                  <div class="resource_metric_header">
+                <div class="resource_metric" style="margin-top: 8px;">
+                  <div class="resource_metric_header" style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;">
                     <span>CPU</span>
                     <span>{{ node.ResourceAllocation.cpu.capacity / 1000000000 | number: 2 }} cores total</span>
                   </div>
-                  <div class="resource_bar" ng-if="node.ResourceAllocation.cpu.hasCapacity">
-                    <div class="resource_bar_reserved" ng-style="{ width: node.ResourceAllocation.cpu.reservedPercent + '%' }"></div>
-                    <div class="resource_bar_limit" ng-style="{ left: node.ResourceAllocation.cpu.limitedPercent + '%' }"></div>
+                  <div class="resource_bar" ng-if="node.ResourceAllocation.cpu.hasCapacity" style="height: 12px; position: relative; overflow: hidden; border-radius: 3px; background-color: #e5e7eb; background-image: linear-gradient(to right, transparent 24.7%, #fff 24.7%, #fff 25.3%, transparent 25.3%, transparent 49.7%, #fff 49.7%, #fff 50.3%, transparent 50.3%, transparent 74.7%, #fff 74.7%, #fff 75.3%, transparent 75.3%);">
+                    <div class="resource_bar_reserved" ng-style="{ width: node.ResourceAllocation.cpu.reservedPercent + '%' }" style="height: 100%; background: #16a34a;"></div>
+                    <div class="resource_bar_limit" ng-style="{ left: node.ResourceAllocation.cpu.limitedPercent + '%' }" style="position: absolute; top: -1px; bottom: -1px; width: 2px; background: #d97706; z-index: 2;"></div>
                   </div>
-                  <div class="resource_bar_unavailable" ng-if="!node.ResourceAllocation.cpu.hasCapacity">Capacity unavailable</div>
-                  <div class="resource_metric_legend">
-                    <span><i class="resource_legend_reserved"></i>Reserved: {{ node.ResourceAllocation.cpu.reserved / 1000000000 | number: 2 }} cores</span>
-                    <span><i class="resource_legend_limit"></i>Limits: {{ node.ResourceAllocation.cpu.limited / 1000000000 | number: 2 }} cores</span>
+                  <div class="resource_bar_unavailable" ng-if="!node.ResourceAllocation.cpu.hasCapacity" style="font-size: 11px; color: #888;">Capacity unavailable</div>
+                  <div class="resource_metric_legend" style="display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 11px;">
+                    <span><i class="resource_legend_reserved" style="display: inline-block; width: 9px; height: 9px; margin-right: 3px; background: #16a34a;"></i>Reserved: {{ node.ResourceAllocation.cpu.reserved / 1000000000 | number: 2 }} cores</span>
+                    <span><i class="resource_legend_limit" style="display: inline-block; width: 2px; height: 11px; margin: 0 6px 0 3px; background: #d97706; vertical-align: middle;"></i>Limits: {{ node.ResourceAllocation.cpu.limited / 1000000000 | number: 2 }} cores</span>
                   </div>
-                  <div class="resource_metric_note" ng-if="node.ResourceAllocation.cpu.tasksWithoutLimit">
+                  <div class="resource_metric_note" style="font-size: 11px; color: #888;" ng-if="node.ResourceAllocation.cpu.tasksWithoutLimit">
                     {{ node.ResourceAllocation.cpu.tasksWithoutLimit }} task(s) have no CPU limit
                   </div>
-                  <div class="resource_metric_warning" ng-if="node.ResourceAllocation.cpu.reservedOverCapacity || node.ResourceAllocation.cpu.limitedOverCapacity">
+                  <div class="resource_metric_warning" style="font-size: 11px; color: #b45309;" ng-if="node.ResourceAllocation.cpu.reservedOverCapacity || node.ResourceAllocation.cpu.limitedOverCapacity">
                     <pr-icon icon="'alert-triangle'" size="'xs'"></pr-icon>
                     <span ng-if="node.ResourceAllocation.cpu.reservedOverCapacity">Reservations exceed capacity.</span>
                     <span ng-if="node.ResourceAllocation.cpu.limitedOverCapacity">Configured limits exceed capacity.</span>
                   </div>
                 </div>
 
-                <div class="resource_metric">
-                  <div class="resource_metric_header">
+                <div class="resource_metric" style="margin-top: 8px;">
+                  <div class="resource_metric_header" style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;">
                     <span>Memory</span>
                     <span>{{ node.ResourceAllocation.memory.capacity | humansize: 2 }} total</span>
                   </div>
-                  <div class="resource_bar" ng-if="node.ResourceAllocation.memory.hasCapacity">
-                    <div class="resource_bar_reserved" ng-style="{ width: node.ResourceAllocation.memory.reservedPercent + '%' }"></div>
-                    <div class="resource_bar_limit" ng-style="{ left: node.ResourceAllocation.memory.limitedPercent + '%' }"></div>
+                  <div class="resource_bar" ng-if="node.ResourceAllocation.memory.hasCapacity" style="height: 12px; position: relative; overflow: hidden; border-radius: 3px; background-color: #e5e7eb; background-image: linear-gradient(to right, transparent 24.7%, #fff 24.7%, #fff 25.3%, transparent 25.3%, transparent 49.7%, #fff 49.7%, #fff 50.3%, transparent 50.3%, transparent 74.7%, #fff 74.7%, #fff 75.3%, transparent 75.3%);">
+                    <div class="resource_bar_reserved" ng-style="{ width: node.ResourceAllocation.memory.reservedPercent + '%' }" style="height: 100%; background: #16a34a;"></div>
+                    <div class="resource_bar_limit" ng-style="{ left: node.ResourceAllocation.memory.limitedPercent + '%' }" style="position: absolute; top: -1px; bottom: -1px; width: 2px; background: #d97706; z-index: 2;"></div>
                   </div>
-                  <div class="resource_bar_unavailable" ng-if="!node.ResourceAllocation.memory.hasCapacity">Capacity unavailable</div>
-                  <div class="resource_metric_legend">
-                    <span><i class="resource_legend_reserved"></i>Reserved: {{ node.ResourceAllocation.memory.reserved | humansize: 2 }}</span>
-                    <span><i class="resource_legend_limit"></i>Limits: {{ node.ResourceAllocation.memory.limited | humansize: 2 }}</span>
+                  <div class="resource_bar_unavailable" ng-if="!node.ResourceAllocation.memory.hasCapacity" style="font-size: 11px; color: #888;">Capacity unavailable</div>
+                  <div class="resource_metric_legend" style="display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 11px;">
+                    <span><i class="resource_legend_reserved" style="display: inline-block; width: 9px; height: 9px; margin-right: 3px; background: #16a34a;"></i>Reserved: {{ node.ResourceAllocation.memory.reserved | humansize: 2 }}</span>
+                    <span><i class="resource_legend_limit" style="display: inline-block; width: 2px; height: 11px; margin: 0 6px 0 3px; background: #d97706; vertical-align: middle;"></i>Limits: {{ node.ResourceAllocation.memory.limited | humansize: 2 }}</span>
                   </div>
-                  <div class="resource_metric_note" ng-if="node.ResourceAllocation.memory.tasksWithoutLimit">
+                  <div class="resource_metric_note" style="font-size: 11px; color: #888;" ng-if="node.ResourceAllocation.memory.tasksWithoutLimit">
                     {{ node.ResourceAllocation.memory.tasksWithoutLimit }} task(s) have no memory limit
                   </div>
-                  <div class="resource_metric_warning" ng-if="node.ResourceAllocation.memory.reservedOverCapacity || node.ResourceAllocation.memory.limitedOverCapacity">
+                  <div class="resource_metric_warning" style="font-size: 11px; color: #b45309;" ng-if="node.ResourceAllocation.memory.reservedOverCapacity || node.ResourceAllocation.memory.limitedOverCapacity">
                     <pr-icon icon="'alert-triangle'" size="'xs'"></pr-icon>
                     <span ng-if="node.ResourceAllocation.memory.reservedOverCapacity">Reservations exceed capacity.</span>
                     <span ng-if="node.ResourceAllocation.memory.limitedOverCapacity">Configured limits exceed capacity.</span>
                   </div>
                 </div>
-                <div class="resource_scale"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100% capacity</span></div>
+                <div class="resource_scale" style="display: flex; justify-content: space-between; margin-top: 3px; font-size: 10px; color: #888;"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100% capacity</span></div>
               </div>
 
               <div class="node_labels" ng-if="node.Labels.length > 0 && state.DisplayNodeLabels">

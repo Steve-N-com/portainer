@@ -144,10 +144,15 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
         var diskQuery = '100 * max(rate(node_disk_io_time_seconds_total{' + selector + ',device!~"^(loop|ram|fd|sr|zram).*"}[5m]))';
         // Use the fullest real filesystem, excluding pseudo and container filesystems.
         var storageQuery = '100 * max(1 - (node_filesystem_avail_bytes{' + selector + ',fstype!~"^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|rpc_pipefs|securityfs|squashfs|sysfs|tmpfs|tracefs)$",mountpoint!~"^/(run|var/lib/docker/.+|var/lib/containerd/.+)"} / node_filesystem_size_bytes{' + selector + ',fstype!~"^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|rpc_pipefs|securityfs|squashfs|sysfs|tmpfs|tracefs)$",mountpoint!~"^/(run|var/lib/docker/.+|var/lib/containerd/.+)"}))';
-        // Compare the busiest receive/transmit direction on each physical interface
-        // with the interface speed exported by Node Exporter (bytes per second).
+        // Calculate receive and transmit separately: rate() drops __name__, so a
+        // combined metric-name selector can produce duplicate labelsets.
+        // Add a direction label before combining the two vectors, then take the
+        // busiest direction across interfaces for this node.
         var networkDevices = ',device!~"^(lo|docker.*|br-.*|veth.*|virbr.*|cni.*|flannel.*|weave.*|vxlan.*)$"';
-        var networkQuery = '100 * max by (' + label + ') (max by (device,' + label + ') (rate({__name__=~"node_network_(receive|transmit)_bytes_total",' + selector + networkDevices + '}[5m])) / on(device,' + label + ') max by (device,' + label + ') (node_network_speed_bytes{' + selector + networkDevices + '} > 0))';
+        var networkSpeedQuery = 'max by (device,' + label + ') (node_network_speed_bytes{' + selector + networkDevices + '} > 0)';
+        var receiveNetworkQuery = 'max by (device,' + label + ') (rate(node_network_receive_bytes_total{' + selector + networkDevices + '}[5m])) / on(device,' + label + ') ' + networkSpeedQuery;
+        var transmitNetworkQuery = 'max by (device,' + label + ') (rate(node_network_transmit_bytes_total{' + selector + networkDevices + '}[5m])) / on(device,' + label + ') ' + networkSpeedQuery;
+        var networkQuery = '100 * max by (' + label + ') (label_replace((' + receiveNetworkQuery + '), "direction", "receive", "device", ".*") or label_replace((' + transmitNetworkQuery + '), "direction", "transmit", "device", ".*"))';
         requests.push($q.all([
           queryNodeMetric(cpuQuery, 'CPU', nodeName),
           queryNodeMetric(memoryQuery, 'memory', nodeName),

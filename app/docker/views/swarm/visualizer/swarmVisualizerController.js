@@ -64,23 +64,26 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       }
     }
 
+    function getClusterData() {
+      return $q.all({
+        nodes: NodeService.nodes(),
+        services: ServiceService.services(),
+        tasks: TaskService.tasks(),
+      });
+    }
+
+    function updateVisualizer(data) {
+      $scope.nodes = data.nodes;
+      $scope.services = data.services;
+      $scope.tasks = data.tasks;
+      prepareVisualizerData(data.nodes, data.services, data.tasks);
+    }
+
     function setUpdateRepeater() {
       var refreshRate = $scope.state.refreshRate;
       $scope.repeater = $interval(function () {
-        $q.all({
-          nodes: NodeService.nodes(),
-          services: ServiceService.services(),
-          tasks: TaskService.tasks(),
-        })
-          .then(function success(data) {
-            var nodes = data.nodes;
-            $scope.nodes = nodes;
-            var services = data.services;
-            $scope.services = services;
-            var tasks = data.tasks;
-            $scope.tasks = tasks;
-            prepareVisualizerData(nodes, services, tasks);
-          })
+        getClusterData()
+          .then(updateVisualizer)
           .catch(function error(err) {
             stopRepeater();
             Notifications.error('Failure', err, 'Unable to retrieve cluster information');
@@ -117,11 +120,61 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       }
     }
 
+    function isAllocatedTask(task) {
+      var state = task.Status && task.Status.State;
+      return task.DesiredState !== 'shutdown' && ['complete', 'failed', 'rejected', 'orphaned', 'remove', 'shutdown'].indexOf(state) === -1;
+    }
+
+    function sumTaskResources(tasks, resource, field) {
+      return tasks.reduce(function (total, task) {
+        var resources = task.Spec && task.Spec.Resources;
+        var value = resources && resources[resource] && resources[resource][field];
+        return total + (typeof value === 'number' && isFinite(value) ? value : 0);
+      }, 0);
+    }
+
+    function countTasksWithoutResource(tasks, resource, field) {
+      return tasks.filter(function (task) {
+        var resources = task.Spec && task.Spec.Resources;
+        return !(resources && resources[resource] && typeof resources[resource][field] === 'number');
+      }).length;
+    }
+
+    function allocationForNode(node, capacity, field) {
+      var allocatedTasks = node.Tasks.filter(isAllocatedTask);
+      var reserved = sumTaskResources(allocatedTasks, 'Reservations', field);
+      var limited = sumTaskResources(allocatedTasks, 'Limits', field);
+      var tasksWithoutLimit = countTasksWithoutResource(allocatedTasks, 'Limits', field);
+      var safeCapacity = typeof capacity === 'number' && capacity > 0 ? capacity : 0;
+
+      return {
+        capacity: safeCapacity,
+        reserved: reserved,
+        limited: limited,
+        reservedPercent: safeCapacity ? Math.min((reserved / safeCapacity) * 100, 100) : 0,
+        limitedPercent: safeCapacity ? Math.min((limited / safeCapacity) * 100, 100) : 0,
+        reservedOverCapacity: safeCapacity > 0 && reserved > safeCapacity,
+        limitedOverCapacity: safeCapacity > 0 && limited > safeCapacity,
+        tasksWithoutLimit: tasksWithoutLimit,
+        hasCapacity: safeCapacity > 0,
+      };
+    }
+
+    function assignNodeResourceAllocations(nodes) {
+      nodes.forEach(function (node) {
+        node.ResourceAllocation = {
+          cpu: allocationForNode(node, node.CPUs, 'NanoCPUs'),
+          memory: allocationForNode(node, node.Memory, 'MemoryBytes'),
+        };
+      });
+    }
+
     function prepareVisualizerData(nodes, services, tasks) {
       var visualizerData = {};
 
       assignServiceInfo(services, tasks);
       assignTasksToNode(nodes, tasks);
+      assignNodeResourceAllocations(nodes);
 
       visualizerData.nodes = nodes;
       $scope.visualizerData = visualizerData;
@@ -142,19 +195,9 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     }
 
     function initView() {
-      $q.all({
-        nodes: NodeService.nodes(),
-        services: ServiceService.services(),
-        tasks: TaskService.tasks(),
-      })
+      getClusterData()
         .then(function success(data) {
-          var nodes = data.nodes;
-          $scope.nodes = nodes;
-          var services = data.services;
-          $scope.services = services;
-          var tasks = data.tasks;
-          $scope.tasks = tasks;
-          prepareVisualizerData(nodes, services, tasks);
+          updateVisualizer(data);
           setUpdateRepeater();
         })
         .catch(function error(err) {

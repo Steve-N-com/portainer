@@ -120,11 +120,62 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       }
     }
 
+    function isAllocatedTask(task) {
+      var state = task.Status && task.Status.State;
+      return task.DesiredState !== 'shutdown' && ['complete', 'failed', 'rejected', 'orphaned', 'remove', 'shutdown'].indexOf(state) === -1;
+    }
+
+    function sumTaskResources(tasks, resource, field) {
+      return tasks.reduce(function (total, task) {
+        var resources = task.Spec && task.Spec.Resources;
+        var value = resources && resources[resource] && resources[resource][field];
+        return total + (typeof value === 'number' && isFinite(value) ? value : 0);
+      }, 0);
+    }
+
+    function countTasksWithoutResource(tasks, resource, field) {
+      return tasks.filter(function (task) {
+        var resources = task.Spec && task.Spec.Resources;
+        return !(resources && resources[resource] && typeof resources[resource][field] === 'number');
+      }).length;
+    }
+
+    function allocationForNode(node, capacity, field, divisor) {
+      var allocatedTasks = node.Tasks.filter(isAllocatedTask);
+      var reserved = sumTaskResources(allocatedTasks, 'Reservations', field);
+      var limited = sumTaskResources(allocatedTasks, 'Limits', field);
+      var tasksWithoutLimit = countTasksWithoutResource(allocatedTasks, 'Limits', field);
+      var safeCapacity = typeof capacity === 'number' && capacity > 0 ? capacity : 0;
+
+      return {
+        capacity: safeCapacity,
+        reserved: reserved,
+        limited: limited,
+        reservedPercent: safeCapacity ? Math.min((reserved / safeCapacity) * 100, 100) : 0,
+        limitedPercent: safeCapacity ? Math.min((limited / safeCapacity) * 100, 100) : 0,
+        reservedOverCapacity: safeCapacity > 0 && reserved > safeCapacity,
+        limitedOverCapacity: safeCapacity > 0 && limited > safeCapacity,
+        tasksWithoutLimit: tasksWithoutLimit,
+        hasCapacity: safeCapacity > 0,
+        divisor: divisor,
+      };
+    }
+
+    function assignNodeResourceAllocations(nodes) {
+      nodes.forEach(function (node) {
+        node.ResourceAllocation = {
+          cpu: allocationForNode(node, node.CPUs, 'NanoCPUs', 1000000000),
+          memory: allocationForNode(node, node.Memory, 'MemoryBytes', 1),
+        };
+      });
+    }
+
     function prepareVisualizerData(nodes, services, tasks) {
       var visualizerData = {};
 
       assignServiceInfo(services, tasks);
       assignTasksToNode(nodes, tasks);
+      assignNodeResourceAllocations(nodes);
 
       visualizerData.nodes = nodes;
       $scope.visualizerData = visualizerData;

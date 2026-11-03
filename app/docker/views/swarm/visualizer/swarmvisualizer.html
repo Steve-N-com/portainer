@@ -133,33 +133,33 @@
               </div>
               <div>{{ node.Role }}</div>
               <div class="node_metric_gauges" ng-if="state.prometheusUrl">
-                <div class="node_metric_gauge" ng-if="node.Metrics">
-                  <div class="metric_gauge" ng-class="{ 'metric_gauge_unavailable': node.Metrics.cpu === null }" ng-style="node.Metrics.cpu !== null && { 'background': 'conic-gradient(#2d9cdb ' + node.Metrics.cpu + '%, #e5e7eb 0)' }">
-                    <span>{{ node.Metrics.cpu === null ? '--' : (node.Metrics.cpu | number:0) + '%' }}</span>
+                <div class="node_metric_gauge" ng-if="node.Metrics && node.Metrics.cpu !== null">
+                  <div class="metric_gauge" ng-style="{ 'background': 'conic-gradient(#2d9cdb ' + node.Metrics.cpu + '%, #e5e7eb 0)' }">
+                    <span>{{ node.Metrics.cpu | number:0 }}%</span>
                   </div>
                   <span class="metric_gauge_label">CPU</span>
                 </div>
-                <div class="node_metric_gauge" ng-if="node.Metrics">
-                  <div class="metric_gauge" ng-class="{ 'metric_gauge_unavailable': node.Metrics.memory === null }" ng-style="node.Metrics.memory !== null && { 'background': 'conic-gradient(#27ae60 ' + node.Metrics.memory + '%, #e5e7eb 0)' }">
-                    <span>{{ node.Metrics.memory === null ? '--' : (node.Metrics.memory | number:0) + '%' }}</span>
+                <div class="node_metric_gauge" ng-if="node.Metrics && node.Metrics.memory !== null">
+                  <div class="metric_gauge" ng-style="{ 'background': 'conic-gradient(#27ae60 ' + node.Metrics.memory + '%, #e5e7eb 0)' }">
+                    <span>{{ node.Metrics.memory | number:0 }}%</span>
                   </div>
                   <span class="metric_gauge_label">Memory</span>
                 </div>
-                <div class="node_metric_gauge" ng-if="node.Metrics">
-                  <div class="metric_gauge" ng-class="{ 'metric_gauge_unavailable': node.Metrics.disk === null }" ng-style="node.Metrics.disk !== null && { 'background': 'conic-gradient(#d97706 ' + node.Metrics.disk + '%, #e5e7eb 0)' }">
-                    <span>{{ node.Metrics.disk === null ? '--' : (node.Metrics.disk | number:0) + '%' }}</span>
+                <div class="node_metric_gauge" ng-if="node.Metrics && node.Metrics.disk !== null">
+                  <div class="metric_gauge" ng-style="{ 'background': 'conic-gradient(#d97706 ' + node.Metrics.disk + '%, #e5e7eb 0)' }">
+                    <span>{{ node.Metrics.disk | number:0 }}%</span>
                   </div>
                   <span class="metric_gauge_label">Disk I/O</span>
                 </div>
-                <div class="node_metric_gauge" ng-if="node.Metrics">
-                  <div class="metric_gauge" ng-class="{ 'metric_gauge_unavailable': node.Metrics.storage === null }" ng-style="node.Metrics.storage !== null && { 'background': 'conic-gradient(#8b5cf6 ' + node.Metrics.storage + '%, #e5e7eb 0)' }">
-                    <span>{{ node.Metrics.storage === null ? '--' : (node.Metrics.storage | number:0) + '%' }}</span>
+                <div class="node_metric_gauge" ng-if="node.Metrics && node.Metrics.storage !== null">
+                  <div class="metric_gauge" ng-style="{ 'background': 'conic-gradient(#8b5cf6 ' + node.Metrics.storage + '%, #e5e7eb 0)' }">
+                    <span>{{ node.Metrics.storage | number:0 }}%</span>
                   </div>
                   <span class="metric_gauge_label">Storage</span>
                 </div>
-                <div class="node_metric_gauge" ng-if="node.Metrics">
-                  <div class="metric_gauge" ng-class="{ 'metric_gauge_unavailable': node.Metrics.network === null }" ng-style="node.Metrics.network !== null && { 'background': 'conic-gradient(#0d9488 ' + node.Metrics.network + '%, #e5e7eb 0)' }">
-                    <span>{{ node.Metrics.network === null ? '--' : (node.Metrics.network | number:0) + '%' }}</span>
+                <div class="node_metric_gauge" ng-if="node.Metrics && node.Metrics.network !== null">
+                  <div class="metric_gauge" ng-style="{ 'background': 'conic-gradient(#0d9488 ' + node.Metrics.network + '%, #e5e7eb 0)' }">
+                    <span>{{ node.Metrics.network | number:0 }}%</span>
                   </div>
                   <span class="metric_gauge_label">Network</span>
                 </div>

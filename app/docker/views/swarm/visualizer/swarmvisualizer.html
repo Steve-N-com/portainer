@@ -94,7 +94,6 @@
               <div><span class="label label-{{ node.Status | nodestatusbadge }}">{{ node.Status }}</span></div>
 
               <div class="node_resource_allocation" ng-if="node.ResourceAllocation" style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #ddd;">
-                <b>Resource allocation</b>
                 <div class="resource_metric" style="margin-top: 8px;">
                   <div class="resource_metric_header" style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;">
                     <span>CPU</span>
@@ -148,7 +147,6 @@
                     <span ng-if="node.ResourceAllocation.memory.limitedOverCapacity">Configured limits exceed capacity.</span>
                   </div>
                 </div>
-                <div class="resource_scale" style="display: flex; justify-content: space-between; margin-top: 3px; font-size: 10px; color: #888;"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100% capacity</span></div>
               </div>
 
               <div class="node_labels" ng-if="node.Labels.length > 0 && state.DisplayNodeLabels">

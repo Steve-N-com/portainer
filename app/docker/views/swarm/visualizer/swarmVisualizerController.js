@@ -104,7 +104,21 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
         }
         return value;
       }).catch(function (error) {
-        var message = error && error.message ? error.message : 'Prometheus request failed';
+        // AngularJS $http rejections are response objects, not Error instances.
+        // Include the Prometheus API body/status so query and proxy errors are visible.
+        var message = error && error.message;
+        if (!message && error && error.data) {
+          if (typeof error.data === 'string') {
+            message = error.data;
+          } else {
+            message = error.data.error || error.data.message;
+          }
+        }
+        if (error && error.status) {
+          message = (message ? message + ' ' : '') + '(HTTP ' + error.status + (error.statusText ? ' ' + error.statusText : '') + ')';
+        }
+        if (!message && error && error.statusText) message = error.statusText;
+        if (!message) message = 'Prometheus request failed (no response details; check browser network/console)';
         reportMetricIssue(metricName, nodeName, message, error);
         return null;
       });

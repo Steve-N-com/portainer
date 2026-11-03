@@ -91,9 +91,60 @@
               <div>{{ node.Role }}</div>
               <div>CPU: {{ node.CPUs / 1000000000 }}</div>
               <div>Memory: {{ node.Memory | humansize: 2 }}</div>
-              <div
-                ><span class="label label-{{ node.Status | nodestatusbadge }}">{{ node.Status }}</span></div
-              >
+              <div><span class="label label-{{ node.Status | nodestatusbadge }}">{{ node.Status }}</span></div>
+
+              <div class="node_resource_allocation" ng-if="node.ResourceAllocation">
+                <b>Resource allocation</b>
+                <div class="resource_metric">
+                  <div class="resource_metric_header">
+                    <span>CPU</span>
+                    <span>{{ node.ResourceAllocation.cpu.capacity / 1000000000 | number: 2 }} cores total</span>
+                  </div>
+                  <div class="resource_bar" ng-if="node.ResourceAllocation.cpu.hasCapacity">
+                    <div class="resource_bar_reserved" ng-style="{ width: node.ResourceAllocation.cpu.reservedPercent + '%' }"></div>
+                    <div class="resource_bar_limit" ng-style="{ left: node.ResourceAllocation.cpu.limitedPercent + '%' }"></div>
+                  </div>
+                  <div class="resource_bar_unavailable" ng-if="!node.ResourceAllocation.cpu.hasCapacity">Capacity unavailable</div>
+                  <div class="resource_metric_legend">
+                    <span><i class="resource_legend_reserved"></i>Reserved: {{ node.ResourceAllocation.cpu.reserved / 1000000000 | number: 2 }} cores</span>
+                    <span><i class="resource_legend_limit"></i>Limits: {{ node.ResourceAllocation.cpu.limited / 1000000000 | number: 2 }} cores</span>
+                  </div>
+                  <div class="resource_metric_note" ng-if="node.ResourceAllocation.cpu.tasksWithoutLimit">
+                    {{ node.ResourceAllocation.cpu.tasksWithoutLimit }} task(s) have no CPU limit
+                  </div>
+                  <div class="resource_metric_warning" ng-if="node.ResourceAllocation.cpu.reservedOverCapacity || node.ResourceAllocation.cpu.limitedOverCapacity">
+                    <pr-icon icon="'alert-triangle'" size="'xs'"></pr-icon>
+                    <span ng-if="node.ResourceAllocation.cpu.reservedOverCapacity">Reservations exceed capacity.</span>
+                    <span ng-if="node.ResourceAllocation.cpu.limitedOverCapacity">Configured limits exceed capacity.</span>
+                  </div>
+                </div>
+
+                <div class="resource_metric">
+                  <div class="resource_metric_header">
+                    <span>Memory</span>
+                    <span>{{ node.ResourceAllocation.memory.capacity | humansize: 2 }} total</span>
+                  </div>
+                  <div class="resource_bar" ng-if="node.ResourceAllocation.memory.hasCapacity">
+                    <div class="resource_bar_reserved" ng-style="{ width: node.ResourceAllocation.memory.reservedPercent + '%' }"></div>
+                    <div class="resource_bar_limit" ng-style="{ left: node.ResourceAllocation.memory.limitedPercent + '%' }"></div>
+                  </div>
+                  <div class="resource_bar_unavailable" ng-if="!node.ResourceAllocation.memory.hasCapacity">Capacity unavailable</div>
+                  <div class="resource_metric_legend">
+                    <span><i class="resource_legend_reserved"></i>Reserved: {{ node.ResourceAllocation.memory.reserved | humansize: 2 }}</span>
+                    <span><i class="resource_legend_limit"></i>Limits: {{ node.ResourceAllocation.memory.limited | humansize: 2 }}</span>
+                  </div>
+                  <div class="resource_metric_note" ng-if="node.ResourceAllocation.memory.tasksWithoutLimit">
+                    {{ node.ResourceAllocation.memory.tasksWithoutLimit }} task(s) have no memory limit
+                  </div>
+                  <div class="resource_metric_warning" ng-if="node.ResourceAllocation.memory.reservedOverCapacity || node.ResourceAllocation.memory.limitedOverCapacity">
+                    <pr-icon icon="'alert-triangle'" size="'xs'"></pr-icon>
+                    <span ng-if="node.ResourceAllocation.memory.reservedOverCapacity">Reservations exceed capacity.</span>
+                    <span ng-if="node.ResourceAllocation.memory.limitedOverCapacity">Configured limits exceed capacity.</span>
+                  </div>
+                </div>
+                <div class="resource_scale"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100% capacity</span></div>
+              </div>
+
               <div class="node_labels" ng-if="node.Labels.length > 0 && state.DisplayNodeLabels">
                 <div>Labels</div>
                 <div class="node_label" ng-repeat="label in node.Labels">

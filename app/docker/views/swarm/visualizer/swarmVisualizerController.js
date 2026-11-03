@@ -13,6 +13,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       ShowInformationPanel: true,
       DisplayOnlyRunningTasks: false,
       DisplayNodeLabels: false,
+      DisplayResourceAllocations: true,
       refreshRate: '5',
     };
 
@@ -27,6 +28,13 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       $scope.$evalAsync(() => {
         $scope.state.DisplayNodeLabels = enabled;
         $scope.changeDisplayNodeLabels();
+      });
+    };
+
+    $scope.handleChangeDisplayResourceAllocations = function handleChangeDisplayResourceAllocations(enabled) {
+      $scope.$evalAsync(() => {
+        $scope.state.DisplayResourceAllocations = enabled;
+        $scope.changeDisplayResourceAllocations();
       });
     };
 
@@ -47,6 +55,11 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     $scope.changeDisplayNodeLabels = function () {
       var value = $scope.state.DisplayNodeLabels;
       LocalStorage.storeSwarmVisualizerSettings('display_node_labels', value);
+    };
+
+    $scope.changeDisplayResourceAllocations = function () {
+      var value = $scope.state.DisplayResourceAllocations;
+      LocalStorage.storeSwarmVisualizerSettings('display_resource_allocations', value);
     };
 
     $scope.changeUpdateRepeater = function () {
@@ -189,6 +202,9 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
 
       var displayNodeLabels = LocalStorage.getSwarmVisualizerSettings('display_node_labels');
       if (displayNodeLabels !== undefined && displayNodeLabels !== null) $scope.state.DisplayNodeLabels = displayNodeLabels;
+
+      var displayResourceAllocations = LocalStorage.getSwarmVisualizerSettings('display_resource_allocations');
+      if (displayResourceAllocations !== undefined && displayResourceAllocations !== null) $scope.state.DisplayResourceAllocations = displayResourceAllocations;
 
       var refreshRate = LocalStorage.getSwarmVisualizerSettings('refresh_rate');
       if (refreshRate !== undefined && refreshRate !== null) $scope.state.refreshRate = refreshRate;

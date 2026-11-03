@@ -140,7 +140,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       }).length;
     }
 
-    function allocationForNode(node, capacity, field, divisor) {
+    function allocationForNode(node, capacity, field) {
       var allocatedTasks = node.Tasks.filter(isAllocatedTask);
       var reserved = sumTaskResources(allocatedTasks, 'Reservations', field);
       var limited = sumTaskResources(allocatedTasks, 'Limits', field);
@@ -157,15 +157,14 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
         limitedOverCapacity: safeCapacity > 0 && limited > safeCapacity,
         tasksWithoutLimit: tasksWithoutLimit,
         hasCapacity: safeCapacity > 0,
-        divisor: divisor,
       };
     }
 
     function assignNodeResourceAllocations(nodes) {
       nodes.forEach(function (node) {
         node.ResourceAllocation = {
-          cpu: allocationForNode(node, node.CPUs, 'NanoCPUs', 1000000000),
-          memory: allocationForNode(node, node.Memory, 'MemoryBytes', 1),
+          cpu: allocationForNode(node, node.CPUs, 'NanoCPUs'),
+          memory: allocationForNode(node, node.Memory, 'MemoryBytes'),
         };
       });
     }

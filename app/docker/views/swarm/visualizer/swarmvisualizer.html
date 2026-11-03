@@ -99,8 +99,8 @@
                 </div>
               </div>
               <div>{{ node.Role }}</div>
-              <div>CPU: {{ node.CPUs / 1000000000 }}</div>
-              <div>Memory: {{ node.Memory | humansize: 2 }}</div>
+              <div ng-if="!state.DisplayResourceAllocations">CPU: {{ node.CPUs / 1000000000 }}</div>
+              <div ng-if="!state.DisplayResourceAllocations">Memory: {{ node.Memory | humansize: 2 }}</div>
               <div><span class="label label-{{ node.Status | nodestatusbadge }}">{{ node.Status }}</span></div>
 
               <div class="node_resource_allocation" ng-if="state.DisplayResourceAllocations && node.ResourceAllocation" style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #ddd;">

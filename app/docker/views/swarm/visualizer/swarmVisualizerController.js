@@ -193,7 +193,11 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       };
     }
 
+    var resourceUsageRequestInProgress = false;
+
     function refreshNodeResourceUsage(nodes) {
+      if (resourceUsageRequestInProgress) return $q.when();
+      resourceUsageRequestInProgress = true;
       var runningTasks = [];
       nodes.forEach(function (node) {
         (node.Tasks || []).forEach(function (task) {
@@ -239,6 +243,8 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
             : 0;
         });
         if (!$scope.$destroyed) $scope.$evalAsync();
+      }).finally(function () {
+        resourceUsageRequestInProgress = false;
       });
     }
 

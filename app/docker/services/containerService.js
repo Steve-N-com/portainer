@@ -27,7 +27,7 @@ angular.module('portainer.docker').factory('ContainerService', ContainerServiceF
 
 /* @ngInject */
 function ContainerServiceFactory(AngularToReact) {
-  const { useAxios } = AngularToReact;
+  const { useAxios, injectEnvironmentId } = AngularToReact;
 
   return {
     killContainer: useAxios(killContainer), // container edit
@@ -44,7 +44,7 @@ function ContainerServiceFactory(AngularToReact) {
     resizeTTY: useAxios(resizeTTYAngularJS), // container console
     updateRestartPolicy: useAxios(updateRestartPolicyAngularJS), // container edit
     createExec: useAxios(createExec), // container console
-    containerStats: useAxios(containerStatsAngularJS), // container stats
+    containerStats: useAxios(injectEnvironmentId(containerStatsAngularJS)), // container stats
     containerTop: useAxios(getContainerTop), // container stats
     inspect: useAxios(getContainer), // container inspect
     logs: useAxios(containerLogsAngularJS), // container logs

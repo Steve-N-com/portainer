@@ -90,8 +90,8 @@ function ContainerServiceFactory(AngularToReact) {
    * @param {EnvironmentId} environmentId
    * @param {ContainerId} id
    */
-  async function containerStatsAngularJS(environmentId, id) {
-    const data = await containerStats(environmentId, id);
+  async function containerStatsAngularJS(environmentId, id, { nodeName } = {}) {
+    const data = await containerStats(environmentId, id, nodeName);
     return new ContainerStatsViewModel(data);
   }
 

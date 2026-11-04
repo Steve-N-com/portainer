@@ -6,14 +6,16 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
   'NodeService',
   'ServiceService',
   'TaskService',
+  'ContainerService',
   'Notifications',
   'LocalStorage',
-  function ($q, $scope, $document, $interval, NodeService, ServiceService, TaskService, Notifications, LocalStorage) {
+  function ($q, $scope, $document, $interval, NodeService, ServiceService, TaskService, ContainerService, Notifications, LocalStorage) {
     $scope.state = {
       ShowInformationPanel: true,
       DisplayOnlyRunningTasks: false,
       DisplayNodeLabels: false,
       DisplayResourceAllocations: true,
+      DisplayActualResourceUsage: true,
       refreshRate: '5',
     };
 
@@ -35,6 +37,16 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       $scope.$evalAsync(() => {
         $scope.state.DisplayResourceAllocations = enabled;
         $scope.changeDisplayResourceAllocations();
+      });
+    };
+
+    $scope.handleChangeDisplayActualResourceUsage = function handleChangeDisplayActualResourceUsage(enabled) {
+      $scope.$evalAsync(() => {
+        $scope.state.DisplayActualResourceUsage = enabled;
+        $scope.changeDisplayActualResourceUsage();
+        if (enabled && $scope.nodes) {
+          refreshNodeResourceUsage($scope.nodes);
+        }
       });
     };
 
@@ -60,6 +72,11 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     $scope.changeDisplayResourceAllocations = function () {
       var value = $scope.state.DisplayResourceAllocations;
       LocalStorage.storeSwarmVisualizerSettings('display_resource_allocations', value);
+    };
+
+    $scope.changeDisplayActualResourceUsage = function () {
+      var value = $scope.state.DisplayActualResourceUsage;
+      LocalStorage.storeSwarmVisualizerSettings('display_actual_resource_usage', value);
     };
 
     $scope.changeUpdateRepeater = function () {
@@ -90,6 +107,9 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       $scope.services = data.services;
       $scope.tasks = data.tasks;
       prepareVisualizerData(data.nodes, data.services, data.tasks);
+      if ($scope.state.DisplayActualResourceUsage) {
+        refreshNodeResourceUsage(data.nodes);
+      }
     }
 
     function setUpdateRepeater() {
@@ -173,6 +193,55 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       };
     }
 
+    function refreshNodeResourceUsage(nodes) {
+      var runningTasks = [];
+      nodes.forEach(function (node) {
+        (node.Tasks || []).forEach(function (task) {
+          if (task.Status && task.Status.State === 'running' && task.ContainerId) {
+            runningTasks.push({ node: node, task: task });
+          }
+        });
+      });
+
+      var usageByNode = new Map();
+      return $q.all(runningTasks.map(function (item) {
+        return ContainerService.containerStats(item.task.ContainerId, { nodeName: item.node.Hostname })
+          .then(function (stats) {
+            var usage = usageByNode.get(item.node.Id) || { cpuCores: 0, memoryBytes: 0, cpuSamples: 0, memorySamples: 0 };
+            var cpuDelta = stats.CurrentCPUTotalUsage - stats.PreviousCPUTotalUsage;
+            var systemDelta = stats.CurrentCPUSystemUsage - stats.PreviousCPUSystemUsage;
+            if (systemDelta > 0 && cpuDelta >= 0) {
+              usage.cpuCores += (cpuDelta / systemDelta) * stats.CPUCores;
+              usage.cpuSamples += 1;
+            }
+            if (typeof stats.MemoryUsage === 'number' && isFinite(stats.MemoryUsage)) {
+              usage.memoryBytes += stats.MemoryUsage;
+              usage.memorySamples += 1;
+            }
+            usageByNode.set(item.node.Id, usage);
+          })
+          .catch(function () {
+            // A task can disappear or move while statistics are being collected.
+          });
+      })).then(function () {
+        nodes.forEach(function (node) {
+          var usage = usageByNode.get(node.Id);
+          var allocation = node.ResourceAllocation;
+          if (!allocation) return;
+
+          allocation.cpu.actual = usage && usage.cpuSamples ? usage.cpuCores : null;
+          allocation.cpu.actualPercent = usage && usage.cpuSamples && allocation.cpu.capacity
+            ? Math.min((usage.cpuCores * 1000000000 / allocation.cpu.capacity) * 100, 100)
+            : 0;
+          allocation.memory.actual = usage && usage.memorySamples ? usage.memoryBytes : null;
+          allocation.memory.actualPercent = usage && usage.memorySamples && allocation.memory.capacity
+            ? Math.min((usage.memoryBytes / allocation.memory.capacity) * 100, 100)
+            : 0;
+        });
+        if (!$scope.$destroyed) $scope.$evalAsync();
+      });
+    }
+
     function assignNodeResourceAllocations(nodes) {
       nodes.forEach(function (node) {
         node.ResourceAllocation = {
@@ -205,6 +274,9 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
 
       var displayResourceAllocations = LocalStorage.getSwarmVisualizerSettings('display_resource_allocations');
       if (displayResourceAllocations !== undefined && displayResourceAllocations !== null) $scope.state.DisplayResourceAllocations = displayResourceAllocations;
+
+      var displayActualResourceUsage = LocalStorage.getSwarmVisualizerSettings('display_actual_resource_usage');
+      if (displayActualResourceUsage !== undefined && displayActualResourceUsage !== null) $scope.state.DisplayActualResourceUsage = displayActualResourceUsage;
 
       var refreshRate = LocalStorage.getSwarmVisualizerSettings('refresh_rate');
       if (refreshRate !== undefined && refreshRate !== null) $scope.state.refreshRate = refreshRate;

@@ -124,9 +124,6 @@
                   <div class="resource_metric_note" style="font-size: 11px; color: #888;" ng-if="node.ResourceAllocation.cpu.tasksWithoutLimit">
                     {{ node.ResourceAllocation.cpu.tasksWithoutLimit }} task(s) have no CPU limit
                   </div>
-                  <div class="resource_metric_warning" style="font-size: 11px; color: #b45309;" ng-if="node.ResourceAllocation.cpu.reservedOverCapacity">
-                    <span>Reservations exceed capacity.</span>
-                  </div>
                 </div>
 
                 <div class="resource_metric" style="margin-top: 8px;">
@@ -148,9 +145,6 @@
                   </div>
                   <div class="resource_metric_note" style="font-size: 11px; color: #888;" ng-if="node.ResourceAllocation.memory.tasksWithoutLimit">
                     {{ node.ResourceAllocation.memory.tasksWithoutLimit }} task(s) have no memory limit
-                  </div>
-                  <div class="resource_metric_warning" style="font-size: 11px; color: #b45309;" ng-if="node.ResourceAllocation.memory.reservedOverCapacity">
-                    <span>Reservations exceed capacity.</span>
                   </div>
                 </div>
               </div>

@@ -111,7 +111,7 @@
                   </div>
                   <div class="resource_bar" ng-if="node.ResourceAllocation.cpu.hasCapacity" style="height: 12px; position: relative; overflow: hidden; border-radius: 3px; background-color: #e5e7eb; background-image: linear-gradient(to right, transparent 24.7%, #fff 24.7%, #fff 25.3%, transparent 25.3%, transparent 49.7%, #fff 49.7%, #fff 50.3%, transparent 50.3%, transparent 74.7%, #fff 74.7%, #fff 75.3%, transparent 75.3%);">
                     <div class="resource_bar_reserved" ng-style="{ width: node.ResourceAllocation.cpu.reservedPercent + '%' }" style="height: 100%; background: #16a34a;"></div>
-                    <div class="resource_bar_limit" ng-style="{ left: node.ResourceAllocation.cpu.limitedPercent + '%' }" style="position: absolute; top: -1px; bottom: -1px; width: 2px; background: #d97706; z-index: 2;"></div>
+                    <div class="resource_bar_limit" ng-style="{ left: node.ResourceAllocation.cpu.limitedOverCapacity ? 'calc(100% - 2px)' : node.ResourceAllocation.cpu.limitedPercent + '%' }" style="position: absolute; top: -1px; bottom: -1px; width: 2px; background: #d97706; z-index: 2;"></div>
                     <span style="position: absolute; top: 0; bottom: 0; left: 25%; width: 1px; background: rgba(255,255,255,.85); z-index: 1;"></span>
                     <span style="position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: rgba(255,255,255,.85); z-index: 1;"></span>
                     <span style="position: absolute; top: 0; bottom: 0; left: 75%; width: 1px; background: rgba(255,255,255,.85); z-index: 1;"></span>
@@ -137,7 +137,7 @@
                   </div>
                   <div class="resource_bar" ng-if="node.ResourceAllocation.memory.hasCapacity" style="height: 12px; position: relative; overflow: hidden; border-radius: 3px; background-color: #e5e7eb; background-image: linear-gradient(to right, transparent 24.7%, #fff 24.7%, #fff 25.3%, transparent 25.3%, transparent 49.7%, #fff 49.7%, #fff 50.3%, transparent 50.3%, transparent 74.7%, #fff 74.7%, #fff 75.3%, transparent 75.3%);">
                     <div class="resource_bar_reserved" ng-style="{ width: node.ResourceAllocation.memory.reservedPercent + '%' }" style="height: 100%; background: #16a34a;"></div>
-                    <div class="resource_bar_limit" ng-style="{ left: node.ResourceAllocation.memory.limitedPercent + '%' }" style="position: absolute; top: -1px; bottom: -1px; width: 2px; background: #d97706; z-index: 2;"></div>
+                    <div class="resource_bar_limit" ng-style="{ left: node.ResourceAllocation.memory.limitedOverCapacity ? 'calc(100% - 2px)' : node.ResourceAllocation.memory.limitedPercent + '%' }" style="position: absolute; top: -1px; bottom: -1px; width: 2px; background: #d97706; z-index: 2;"></div>
                     <span style="position: absolute; top: 0; bottom: 0; left: 25%; width: 1px; background: rgba(255,255,255,.85); z-index: 1;"></span>
                     <span style="position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: rgba(255,255,255,.85); z-index: 1;"></span>
                     <span style="position: absolute; top: 0; bottom: 0; left: 75%; width: 1px; background: rgba(255,255,255,.85); z-index: 1;"></span>

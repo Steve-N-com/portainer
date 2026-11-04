@@ -103,10 +103,11 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     }
 
     function updateVisualizer(data) {
+      var previousNodes = $scope.nodes || [];
       $scope.nodes = data.nodes;
       $scope.services = data.services;
       $scope.tasks = data.tasks;
-      prepareVisualizerData(data.nodes, data.services, data.tasks);
+      prepareVisualizerData(data.nodes, data.services, data.tasks, previousNodes);
       if ($scope.state.DisplayActualResourceUsage) {
         refreshNodeResourceUsage(data.nodes);
       }
@@ -248,21 +249,36 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       });
     }
 
-    function assignNodeResourceAllocations(nodes) {
+    function assignNodeResourceAllocations(nodes, previousNodes) {
+      var previousAllocations = new Map();
+      previousNodes.forEach(function (node) {
+        if (node.ResourceAllocation) {
+          previousAllocations.set(node.Id, node.ResourceAllocation);
+        }
+      });
+
       nodes.forEach(function (node) {
+        var previous = previousAllocations.get(node.Id);
         node.ResourceAllocation = {
           cpu: allocationForNode(node, node.CPUs, 'NanoCPUs'),
           memory: allocationForNode(node, node.Memory, 'MemoryBytes'),
         };
+
+        if (previous) {
+          ['cpu', 'memory'].forEach(function (resource) {
+            node.ResourceAllocation[resource].actual = previous[resource].actual;
+            node.ResourceAllocation[resource].actualPercent = previous[resource].actualPercent;
+          });
+        }
       });
     }
 
-    function prepareVisualizerData(nodes, services, tasks) {
+    function prepareVisualizerData(nodes, services, tasks, previousNodes) {
       var visualizerData = {};
 
       assignServiceInfo(services, tasks);
       assignTasksToNode(nodes, tasks);
-      assignNodeResourceAllocations(nodes);
+      assignNodeResourceAllocations(nodes, previousNodes || []);
 
       visualizerData.nodes = nodes;
       $scope.visualizerData = visualizerData;

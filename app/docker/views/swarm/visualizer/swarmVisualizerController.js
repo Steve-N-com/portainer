@@ -141,7 +141,16 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       }
     }
 
-    function assignTasksToNode(nodes, tasks) {
+    function assignTasksToNode(nodes, tasks, previousNodes) {
+      var previousUsageByTask = new Map();
+      previousNodes.forEach(function (node) {
+        (node.Tasks || []).forEach(function (task) {
+          if (task.Id && task.ResourceUsage) {
+            previousUsageByTask.set(task.Id, task.ResourceUsage);
+          }
+        });
+      });
+
       for (var i = 0; i < nodes.length; i++) {
         var node = nodes[i];
         node.Tasks = [];
@@ -150,6 +159,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
           var task = tasks[j];
 
           if (task.NodeId === node.Id) {
+            task.ResourceUsage = previousUsageByTask.get(task.Id) || task.ResourceUsage || { cpuCores: null, memoryBytes: null };
             node.Tasks.push(task);
           }
         }
@@ -221,7 +231,11 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
               taskCpuCores = (cpuDelta / systemDelta) * stats.CPUCores;
             }
             var taskMemoryBytes = typeof stats.MemoryUsage === 'number' && isFinite(stats.MemoryUsage) ? stats.MemoryUsage : null;
-            item.task.ResourceUsage = { cpuCores: taskCpuCores, memoryBytes: taskMemoryBytes };
+            var previousUsage = item.task.ResourceUsage || {};
+            item.task.ResourceUsage = {
+              cpuCores: taskCpuCores !== null ? taskCpuCores : previousUsage.cpuCores,
+              memoryBytes: taskMemoryBytes !== null ? taskMemoryBytes : previousUsage.memoryBytes,
+            };
 
             var usage = usageByNode.get(item.node.Id) || { cpuCores: 0, memoryBytes: 0, cpuSamples: 0, memorySamples: 0 };
             if (taskCpuCores !== null) {
@@ -286,7 +300,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       var visualizerData = {};
 
       assignServiceInfo(services, tasks);
-      assignTasksToNode(nodes, tasks);
+      assignTasksToNode(nodes, tasks, previousNodes || []);
       assignNodeResourceAllocations(nodes, previousNodes || []);
 
       visualizerData.nodes = nodes;

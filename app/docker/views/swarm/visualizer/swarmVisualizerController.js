@@ -44,7 +44,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       $scope.$evalAsync(() => {
         $scope.state.DisplayActualResourceUsage = enabled;
         $scope.changeDisplayActualResourceUsage();
-        if (enabled && $scope.nodes) {
+        if (enabled && $scope.state.DisplayResourceAllocations && $scope.nodes) {
           refreshNodeResourceUsage($scope.nodes);
         }
       });

@@ -10,6 +10,8 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
   'Notifications',
   'LocalStorage',
   function ($q, $scope, $document, $interval, NodeService, ServiceService, TaskService, ContainerService, Notifications, LocalStorage) {
+    $scope.Math = Math;
+
     $scope.state = {
       ShowInformationPanel: true,
       DisplayOnlyRunningTasks: false,
@@ -212,15 +214,22 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       return $q.all(runningTasks.map(function (item) {
         return ContainerService.containerStats(item.task.ContainerId, { nodeName: item.node.Hostname })
           .then(function (stats) {
-            var usage = usageByNode.get(item.node.Id) || { cpuCores: 0, memoryBytes: 0, cpuSamples: 0, memorySamples: 0 };
+            var taskCpuCores = null;
             var cpuDelta = stats.CurrentCPUTotalUsage - stats.PreviousCPUTotalUsage;
             var systemDelta = stats.CurrentCPUSystemUsage - stats.PreviousCPUSystemUsage;
             if (systemDelta > 0 && cpuDelta >= 0) {
-              usage.cpuCores += (cpuDelta / systemDelta) * stats.CPUCores;
+              taskCpuCores = (cpuDelta / systemDelta) * stats.CPUCores;
+            }
+            var taskMemoryBytes = typeof stats.MemoryUsage === 'number' && isFinite(stats.MemoryUsage) ? stats.MemoryUsage : null;
+            item.task.ResourceUsage = { cpuCores: taskCpuCores, memoryBytes: taskMemoryBytes };
+
+            var usage = usageByNode.get(item.node.Id) || { cpuCores: 0, memoryBytes: 0, cpuSamples: 0, memorySamples: 0 };
+            if (taskCpuCores !== null) {
+              usage.cpuCores += taskCpuCores;
               usage.cpuSamples += 1;
             }
-            if (typeof stats.MemoryUsage === 'number' && isFinite(stats.MemoryUsage)) {
-              usage.memoryBytes += stats.MemoryUsage;
+            if (taskMemoryBytes !== null) {
+              usage.memoryBytes += taskMemoryBytes;
               usage.memorySamples += 1;
             }
             usageByNode.set(item.node.Id, usage);

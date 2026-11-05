@@ -181,6 +181,8 @@
                 <div>Image: {{ task.Spec.ContainerSpec.Image | hideshasum }}</div>
                 <div>Status: {{ task.Status.State }}</div>
                 <div>Update: {{ task.Updated | getisodate }}</div>
+                <div ng-if="!(state.DisplayResourceAllocations && state.DisplayActualResourceUsage) && task.Spec.Resources.Limits.MemoryBytes">Memory limit: {{ task.Spec.Resources.Limits.MemoryBytes | humansize: 2 : 2 }}</div>
+                <div ng-if="!(state.DisplayResourceAllocations && state.DisplayActualResourceUsage) && task.Spec.Resources.Limits.NanoCPUs">CPU limit: {{ task.Spec.Resources.Limits.NanoCPUs / 1000000000 }}</div>
                 <div class="task_resource_charts" ng-if="state.DisplayResourceAllocations && state.DisplayActualResourceUsage">
                   <div class="task_resource_metric" ng-if="task.Spec.Resources.Limits.NanoCPUs > 0" style="margin-top: 8px;">
                     <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">

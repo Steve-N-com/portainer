@@ -12,6 +12,13 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
   function ($q, $scope, $document, $interval, NodeService, ServiceService, TaskService, ContainerService, Notifications, LocalStorage) {
     $scope.Math = Math;
 
+    $scope.formatMemoryBytes = function (bytes) {
+      if (typeof bytes !== 'number' || !isFinite(bytes)) return 'Unavailable';
+      var divisor = bytes >= 1073741824 ? 1073741824 : 1048576;
+      var unit = divisor === 1073741824 ? ' GiB' : ' MiB';
+      return (bytes / divisor).toFixed(2) + unit;
+    };
+
     $scope.state = {
       ShowInformationPanel: true,
       DisplayOnlyRunningTasks: false,

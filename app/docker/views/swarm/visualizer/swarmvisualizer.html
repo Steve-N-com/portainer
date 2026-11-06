@@ -181,7 +181,7 @@
                 <div>Image: {{ task.Spec.ContainerSpec.Image | hideshasum }}</div>
                 <div>Status: {{ task.Status.State }}</div>
                 <div>Update: {{ task.Updated | getisodate }}</div>
-                <div ng-if="!(state.DisplayResourceAllocations && state.DisplayActualResourceUsage) && task.Spec.Resources.Limits.MemoryBytes">Memory limit: {{ task.Spec.Resources.Limits.MemoryBytes | humansize: 2 : 2 }}</div>
+                <div ng-if="!(state.DisplayResourceAllocations && state.DisplayActualResourceUsage) && task.Spec.Resources.Limits.MemoryBytes">Memory limit: {{ formatMemoryBytes(task.Spec.Resources.Limits.MemoryBytes) }}</div>
                 <div ng-if="!(state.DisplayResourceAllocations && state.DisplayActualResourceUsage) && task.Spec.Resources.Limits.NanoCPUs">CPU limit: {{ task.Spec.Resources.Limits.NanoCPUs / 1000000000 }}</div>
                 <div class="task_resource_charts" ng-if="state.DisplayResourceAllocations && state.DisplayActualResourceUsage">
                   <div class="task_resource_metric" ng-if="task.Spec.Resources.Limits.NanoCPUs > 0" style="margin-top: 8px;">
@@ -201,15 +201,15 @@
                   <div class="task_resource_metric" ng-if="task.Spec.Resources.Limits.MemoryBytes > 0" style="margin-top: 8px;">
                     <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
                       <span>Memory</span>
-                      <span>Limit: {{ task.Spec.Resources.Limits.MemoryBytes | humansize: 2 : 2 }}</span>
+                      <span>Limit: {{ formatMemoryBytes(task.Spec.Resources.Limits.MemoryBytes) }}</span>
                     </div>
                     <div style="height: 10px; position: relative; overflow: hidden; border-radius: 3px; background: #e5e7eb;">
-                      <div ng-if="task.ResourceUsage.memoryBytes !== null && task.ResourceUsage.memoryBytes !== undefined" ng-style="{ width: Math.min((task.ResourceUsage.memoryBytes / task.Spec.Resources.Limits.MemoryBytes) * 100, 100) + '%' }" title="Actual usage: {{ task.ResourceUsage.memoryBytes | humansize: 2 }}" style="height: 100%; background: #16a34a;"></div>
+                      <div ng-if="task.ResourceUsage.memoryBytes !== null && task.ResourceUsage.memoryBytes !== undefined" ng-style="{ width: Math.min((task.ResourceUsage.memoryBytes / task.Spec.Resources.Limits.MemoryBytes) * 100, 100) + '%' }" title="Actual usage: {{ formatMemoryBytes(task.ResourceUsage.memoryBytes) }}" style="height: 100%; background: #16a34a;"></div>
                       <div ng-if="task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.MemoryBytes > 0" ng-style="{ left: Math.min(((task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.MemoryBytes) / task.Spec.Resources.Limits.MemoryBytes) * 100, 100) + '%' }" title="Reserved: {{ task.Spec.Resources.Reservations.MemoryBytes | humansize: 2 }}" style="position: absolute; top: -1px; bottom: -1px; width: 2px; background: #d97706;"></div>
                     </div>
                     <div style="display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 3px; font-size: 10px;">
-                      <span><i style="display: inline-block; width: 8px; height: 8px; background: #16a34a; margin-right: 3px;"></i>Actual: {{ task.ResourceUsage.memoryBytes === null || task.ResourceUsage.memoryBytes === undefined ? 'Unavailable' : (task.ResourceUsage.memoryBytes >= 1073741824 ? ((task.ResourceUsage.memoryBytes / 1073741824 | number: 2) + ' GiB') : ((task.ResourceUsage.memoryBytes / 1048576 | number: 2) + ' MiB')) }}</span>
-                      <span><i style="display: inline-block; width: 2px; height: 10px; background: #d97706; margin: 0 6px 0 3px; vertical-align: middle;"></i>Reserved: {{ (task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.MemoryBytes || 0) >= 1073741824 ? (((task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.MemoryBytes || 0) / 1073741824 | number: 2) + ' GiB') : (((task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.MemoryBytes || 0) / 1048576 | number: 2) + ' MiB') }}</span>
+                      <span><i style="display: inline-block; width: 8px; height: 8px; background: #16a34a; margin-right: 3px;"></i>Actual: {{ task.ResourceUsage.memoryBytes === null || task.ResourceUsage.memoryBytes === undefined ? 'Unavailable' : formatMemoryBytes(task.ResourceUsage.memoryBytes) }}</span>
+                      <span><i style="display: inline-block; width: 2px; height: 10px; background: #d97706; margin: 0 6px 0 3px; vertical-align: middle;"></i>Reserved: {{ formatMemoryBytes((task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.MemoryBytes) || 0) }}</span>
                     </div>
                   </div>
                 </div>

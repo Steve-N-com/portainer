@@ -49,6 +49,26 @@
               ></por-switch-field>
             </div>
           </div>
+          <div class="form-group">
+            <div class="col-sm-12">
+              <por-switch-field
+                label-class="'col-sm-2'"
+                checked="state.DisplayResourceAllocations"
+                label="'Display resource allocations'"
+                on-change="(handleChangeDisplayResourceAllocations)"
+              ></por-switch-field>
+            </div>
+          </div>
+          <div class="form-group" ng-if="state.DisplayResourceAllocations">
+            <div class="col-sm-12">
+              <por-switch-field
+                label-class="'col-sm-2'"
+                checked="state.DisplayActualResourceUsage"
+                label="'Display actual resource usage'"
+                on-change="(handleChangeDisplayActualResourceUsage)"
+              ></por-switch-field>
+            </div>
+          </div>
         </form>
         <form class="form-horizontal">
           <div class="col-sm-12 form-section-title"> Refresh rate </div>
@@ -89,11 +109,60 @@
                 </div>
               </div>
               <div>{{ node.Role }}</div>
-              <div>CPU: {{ node.CPUs / 1000000000 }}</div>
-              <div>Memory: {{ node.Memory | humansize: 2 }}</div>
-              <div
-                ><span class="label label-{{ node.Status | nodestatusbadge }}">{{ node.Status }}</span></div
-              >
+              <div ng-if="!state.DisplayResourceAllocations">CPU: {{ node.CPUs / 1000000000 }}</div>
+              <div ng-if="!state.DisplayResourceAllocations">Memory: {{ formatMemoryBytes(node.Memory) }}</div>
+              <div><span class="label label-{{ node.Status | nodestatusbadge }}">{{ node.Status }}</span></div>
+
+              <div class="node_resource_allocation" ng-if="state.DisplayResourceAllocations && node.ResourceAllocation" style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #ddd;">
+                <div class="resource_metric" style="margin-top: 8px;">
+                  <div class="resource_metric_header" style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;">
+                    <span>CPU</span>
+                    <span>{{ node.ResourceAllocation.cpu.capacity / 1000000000 | number: 2 }} cores total</span>
+                  </div>
+                  <div class="resource_bar" ng-if="node.ResourceAllocation.cpu.hasCapacity" style="height: 12px; position: relative; overflow: hidden; border-radius: 3px; background-color: #e5e7eb; background-image: linear-gradient(to right, transparent 24.7%, #fff 24.7%, #fff 25.3%, transparent 25.3%, transparent 49.7%, #fff 49.7%, #fff 50.3%, transparent 50.3%, transparent 74.7%, #fff 74.7%, #fff 75.3%, transparent 75.3%);">
+                    <div class="resource_bar_reserved" ng-style="{ width: node.ResourceAllocation.cpu.reservedPercent + '%' }" style="height: 100%; background: #16a34a;"></div>
+                    <div ng-if="state.DisplayActualResourceUsage && node.ResourceAllocation.cpu.actual !== null && node.ResourceAllocation.cpu.actual !== undefined" ng-style="{ width: node.ResourceAllocation.cpu.actualPercent + '%' }" title="Actual usage: {{ node.ResourceAllocation.cpu.actual | number: 2 }} cores" style="position: absolute; top: 4px; left: 0; height: 4px; background: #111; z-index: 3;"></div>
+                    <div class="resource_bar_limit" ng-style="{ left: node.ResourceAllocation.cpu.limitedOverCapacity ? 'calc(100% - 2px)' : node.ResourceAllocation.cpu.limitedPercent + '%' }" style="position: absolute; top: -1px; bottom: -1px; width: 2px; background: #d97706; z-index: 2;"></div>
+                    <span style="position: absolute; top: 0; bottom: 0; left: 25%; width: 1px; background: rgba(255,255,255,.85); z-index: 1;"></span>
+                    <span style="position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: rgba(255,255,255,.85); z-index: 1;"></span>
+                    <span style="position: absolute; top: 0; bottom: 0; left: 75%; width: 1px; background: rgba(255,255,255,.85); z-index: 1;"></span>
+                  </div>
+                  <div class="resource_bar_unavailable" ng-if="!node.ResourceAllocation.cpu.hasCapacity" style="font-size: 11px; color: #888;">Capacity unavailable</div>
+                  <div class="resource_metric_legend" style="display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 11px;">
+                    <span><i class="resource_legend_reserved" style="display: inline-block; width: 9px; height: 9px; margin-right: 3px; background: #16a34a;"></i>Reserved: {{ node.ResourceAllocation.cpu.reserved / 1000000000 | number: 2 }} cores</span>
+                    <span ng-if="state.DisplayActualResourceUsage"><i style="display: inline-block; width: 9px; height: 4px; margin-right: 3px; background: #111; vertical-align: middle;"></i>Actual: {{ node.ResourceAllocation.cpu.actual === null || node.ResourceAllocation.cpu.actual === undefined ? 'Unavailable' : (node.ResourceAllocation.cpu.actual | number: 2) + ' cores' }}</span>
+                    <span><i class="resource_legend_limit" style="display: inline-block; width: 2px; height: 11px; margin: 0 6px 0 3px; background: #d97706; vertical-align: middle;"></i>Limits: {{ node.ResourceAllocation.cpu.limited / 1000000000 | number: 2 }} cores <pr-icon ng-if="node.ResourceAllocation.cpu.reservedOverCapacity || node.ResourceAllocation.cpu.limitedOverCapacity" icon="'alert-triangle'" size="'xs'" style="color: #b45309;" title="Resource reservations or limits exceed capacity."></pr-icon></span>
+                  </div>
+                  <div class="resource_metric_note" style="font-size: 11px; color: #888;" ng-if="node.ResourceAllocation.cpu.tasksWithoutLimit">
+                    {{ node.ResourceAllocation.cpu.tasksWithoutLimit }} task(s) have no CPU limit
+                  </div>
+                </div>
+
+                <div class="resource_metric" style="margin-top: 8px;">
+                  <div class="resource_metric_header" style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;">
+                    <span>Memory</span>
+                    <span>{{ formatMemoryBytes(node.ResourceAllocation.memory.capacity) }} total</span>
+                  </div>
+                  <div class="resource_bar" ng-if="node.ResourceAllocation.memory.hasCapacity" style="height: 12px; position: relative; overflow: hidden; border-radius: 3px; background-color: #e5e7eb; background-image: linear-gradient(to right, transparent 24.7%, #fff 24.7%, #fff 25.3%, transparent 25.3%, transparent 49.7%, #fff 49.7%, #fff 50.3%, transparent 50.3%, transparent 74.7%, #fff 74.7%, #fff 75.3%, transparent 75.3%);">
+                    <div class="resource_bar_reserved" ng-style="{ width: node.ResourceAllocation.memory.reservedPercent + '%' }" style="height: 100%; background: #16a34a;"></div>
+                    <div ng-if="state.DisplayActualResourceUsage && node.ResourceAllocation.memory.actual !== null && node.ResourceAllocation.memory.actual !== undefined" ng-style="{ width: node.ResourceAllocation.memory.actualPercent + '%' }" title="Actual usage: {{ formatMemoryBytes(node.ResourceAllocation.memory.actual) }}" style="position: absolute; top: 4px; left: 0; height: 4px; background: #111; z-index: 3;"></div>
+                    <div class="resource_bar_limit" ng-style="{ left: node.ResourceAllocation.memory.limitedOverCapacity ? 'calc(100% - 2px)' : node.ResourceAllocation.memory.limitedPercent + '%' }" style="position: absolute; top: -1px; bottom: -1px; width: 2px; background: #d97706; z-index: 2;"></div>
+                    <span style="position: absolute; top: 0; bottom: 0; left: 25%; width: 1px; background: rgba(255,255,255,.85); z-index: 1;"></span>
+                    <span style="position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: rgba(255,255,255,.85); z-index: 1;"></span>
+                    <span style="position: absolute; top: 0; bottom: 0; left: 75%; width: 1px; background: rgba(255,255,255,.85); z-index: 1;"></span>
+                  </div>
+                  <div class="resource_bar_unavailable" ng-if="!node.ResourceAllocation.memory.hasCapacity" style="font-size: 11px; color: #888;">Capacity unavailable</div>
+                  <div class="resource_metric_legend" style="display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 11px;">
+                    <span><i class="resource_legend_reserved" style="display: inline-block; width: 9px; height: 9px; margin-right: 3px; background: #16a34a;"></i>Reserved: {{ formatMemoryBytes(node.ResourceAllocation.memory.reserved) }}</span>
+                    <span ng-if="state.DisplayActualResourceUsage"><i style="display: inline-block; width: 9px; height: 4px; margin-right: 3px; background: #111; vertical-align: middle;"></i>Actual: {{ node.ResourceAllocation.memory.actual === null || node.ResourceAllocation.memory.actual === undefined ? 'Unavailable' : formatMemoryBytes(node.ResourceAllocation.memory.actual) }}</span>
+                    <span><i class="resource_legend_limit" style="display: inline-block; width: 2px; height: 11px; margin: 0 6px 0 3px; background: #d97706; vertical-align: middle;"></i>Limits: {{ formatMemoryBytes(node.ResourceAllocation.memory.limited) }} <pr-icon ng-if="node.ResourceAllocation.memory.reservedOverCapacity || node.ResourceAllocation.memory.limitedOverCapacity" icon="'alert-triangle'" size="'xs'" style="color: #b45309;" title="Resource reservations or limits exceed capacity."></pr-icon></span>
+                  </div>
+                  <div class="resource_metric_note" style="font-size: 11px; color: #888;" ng-if="node.ResourceAllocation.memory.tasksWithoutLimit">
+                    {{ node.ResourceAllocation.memory.tasksWithoutLimit }} task(s) have no memory limit
+                  </div>
+                </div>
+              </div>
+
               <div class="node_labels" ng-if="node.Labels.length > 0 && state.DisplayNodeLabels">
                 <div>Labels</div>
                 <div class="node_label" ng-repeat="label in node.Labels">
@@ -112,8 +181,38 @@
                 <div>Image: {{ task.Spec.ContainerSpec.Image | hideshasum }}</div>
                 <div>Status: {{ task.Status.State }}</div>
                 <div>Update: {{ task.Updated | getisodate }}</div>
-                <div ng-if="task.Spec.Resources.Limits.MemoryBytes">Memory limit: {{ task.Spec.Resources.Limits.MemoryBytes | humansize: 2 : 2 }}</div>
-                <div ng-if="task.Spec.Resources.Limits.NanoCPUs">CPU limit: {{ task.Spec.Resources.Limits.NanoCPUs / 1000000000 }}</div>
+                <div ng-if="!(state.DisplayResourceAllocations && state.DisplayActualResourceUsage) && task.Spec.Resources.Limits.MemoryBytes">Memory limit: {{ formatMemoryBytes(task.Spec.Resources.Limits.MemoryBytes) }}</div>
+                <div ng-if="!(state.DisplayResourceAllocations && state.DisplayActualResourceUsage) && task.Spec.Resources.Limits.NanoCPUs">CPU limit: {{ task.Spec.Resources.Limits.NanoCPUs / 1000000000 }}</div>
+                <div class="task_resource_charts" ng-if="state.DisplayResourceAllocations && state.DisplayActualResourceUsage">
+                  <div class="task_resource_metric" ng-if="task.Spec.Resources.Limits.NanoCPUs > 0" style="margin-top: 8px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
+                      <span>CPU</span>
+                      <span>Limit: {{ task.Spec.Resources.Limits.NanoCPUs / 1000000000 | number: 2 }} cores</span>
+                    </div>
+                    <div style="height: 10px; position: relative; overflow: hidden; border-radius: 3px; background: #e5e7eb;">
+                      <div ng-if="task.ResourceUsage.cpuCores !== null && task.ResourceUsage.cpuCores !== undefined" ng-style="{ width: Math.min((task.ResourceUsage.cpuCores * 1000000000 / task.Spec.Resources.Limits.NanoCPUs) * 100, 100) + '%' }" title="Actual usage: {{ task.ResourceUsage.cpuCores | number: 2 }} cores" style="height: 100%; background: #16a34a;"></div>
+                      <div ng-if="task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.NanoCPUs > 0" ng-style="{ left: ((task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.NanoCPUs) || 0) >= task.Spec.Resources.Limits.NanoCPUs ? 'calc(100% - 2px)' : (((task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.NanoCPUs) || 0) / task.Spec.Resources.Limits.NanoCPUs) * 100 + '%' }" title="Reserved: {{ task.Spec.Resources.Reservations.NanoCPUs / 1000000000 | number: 2 }} cores" style="position: absolute; top: -1px; bottom: -1px; width: 2px; background: #d97706;"></div>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 3px; font-size: 10px;">
+                      <span><i style="display: inline-block; width: 8px; height: 8px; background: #16a34a; margin-right: 3px;"></i>Actual: {{ task.ResourceUsage.cpuCores === null || task.ResourceUsage.cpuCores === undefined ? 'Unavailable' : (task.ResourceUsage.cpuCores | number: 2) + ' cores' }}</span>
+                      <span><i style="display: inline-block; width: 2px; height: 10px; background: #d97706; margin: 0 6px 0 3px; vertical-align: middle;"></i>Reserved: {{ ((task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.NanoCPUs) || 0) / 1000000000 | number: 2 }} cores</span>
+                    </div>
+                  </div>
+                  <div class="task_resource_metric" ng-if="task.Spec.Resources.Limits.MemoryBytes > 0" style="margin-top: 8px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
+                      <span>Memory</span>
+                      <span>Limit: {{ formatMemoryBytes(task.Spec.Resources.Limits.MemoryBytes) }}</span>
+                    </div>
+                    <div style="height: 10px; position: relative; overflow: hidden; border-radius: 3px; background: #e5e7eb;">
+                      <div ng-if="task.ResourceUsage.memoryBytes !== null && task.ResourceUsage.memoryBytes !== undefined" ng-style="{ width: Math.min((task.ResourceUsage.memoryBytes / task.Spec.Resources.Limits.MemoryBytes) * 100, 100) + '%' }" title="Actual usage: {{ formatMemoryBytes(task.ResourceUsage.memoryBytes) }}" style="height: 100%; background: #16a34a;"></div>
+                      <div ng-if="task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.MemoryBytes > 0" ng-style="{ left: ((task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.MemoryBytes) || 0) >= task.Spec.Resources.Limits.MemoryBytes ? 'calc(100% - 2px)' : (((task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.MemoryBytes) || 0) / task.Spec.Resources.Limits.MemoryBytes) * 100 + '%' }" title="Reserved: {{ task.Spec.Resources.Reservations.MemoryBytes | humansize: 2 }}" style="position: absolute; top: -1px; bottom: -1px; width: 2px; background: #d97706;"></div>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 3px; font-size: 10px;">
+                      <span><i style="display: inline-block; width: 8px; height: 8px; background: #16a34a; margin-right: 3px;"></i>Actual: {{ task.ResourceUsage.memoryBytes === null || task.ResourceUsage.memoryBytes === undefined ? 'Unavailable' : formatMemoryBytes(task.ResourceUsage.memoryBytes) }}</span>
+                      <span><i style="display: inline-block; width: 2px; height: 10px; background: #d97706; margin: 0 6px 0 3px; vertical-align: middle;"></i>Reserved: {{ formatMemoryBytes((task.Spec.Resources.Reservations && task.Spec.Resources.Reservations.MemoryBytes) || 0) }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

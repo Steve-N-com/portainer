@@ -6,13 +6,25 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
   'NodeService',
   'ServiceService',
   'TaskService',
+  'ContainerService',
   'Notifications',
   'LocalStorage',
-  function ($q, $scope, $document, $interval, NodeService, ServiceService, TaskService, Notifications, LocalStorage) {
+  function ($q, $scope, $document, $interval, NodeService, ServiceService, TaskService, ContainerService, Notifications, LocalStorage) {
+    $scope.Math = Math;
+
+    $scope.formatMemoryBytes = function (bytes) {
+      if (typeof bytes !== 'number' || !isFinite(bytes)) return 'Unavailable';
+      var divisor = bytes >= 1073741824 ? 1073741824 : 1048576;
+      var unit = divisor === 1073741824 ? ' GiB' : ' MiB';
+      return (bytes / divisor).toFixed(2) + unit;
+    };
+
     $scope.state = {
       ShowInformationPanel: true,
       DisplayOnlyRunningTasks: false,
       DisplayNodeLabels: false,
+      DisplayResourceAllocations: true,
+      DisplayActualResourceUsage: true,
       refreshRate: '5',
     };
 
@@ -27,6 +39,23 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       $scope.$evalAsync(() => {
         $scope.state.DisplayNodeLabels = enabled;
         $scope.changeDisplayNodeLabels();
+      });
+    };
+
+    $scope.handleChangeDisplayResourceAllocations = function handleChangeDisplayResourceAllocations(enabled) {
+      $scope.$evalAsync(() => {
+        $scope.state.DisplayResourceAllocations = enabled;
+        $scope.changeDisplayResourceAllocations();
+      });
+    };
+
+    $scope.handleChangeDisplayActualResourceUsage = function handleChangeDisplayActualResourceUsage(enabled) {
+      $scope.$evalAsync(() => {
+        $scope.state.DisplayActualResourceUsage = enabled;
+        $scope.changeDisplayActualResourceUsage();
+        if (enabled && $scope.state.DisplayResourceAllocations && $scope.nodes) {
+          refreshNodeResourceUsage($scope.nodes);
+        }
       });
     };
 
@@ -49,6 +78,16 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       LocalStorage.storeSwarmVisualizerSettings('display_node_labels', value);
     };
 
+    $scope.changeDisplayResourceAllocations = function () {
+      var value = $scope.state.DisplayResourceAllocations;
+      LocalStorage.storeSwarmVisualizerSettings('display_resource_allocations', value);
+    };
+
+    $scope.changeDisplayActualResourceUsage = function () {
+      var value = $scope.state.DisplayActualResourceUsage;
+      LocalStorage.storeSwarmVisualizerSettings('display_actual_resource_usage', value);
+    };
+
     $scope.changeUpdateRepeater = function () {
       stopRepeater();
       setUpdateRepeater();
@@ -64,23 +103,30 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       }
     }
 
+    function getClusterData() {
+      return $q.all({
+        nodes: NodeService.nodes(),
+        services: ServiceService.services(),
+        tasks: TaskService.tasks(),
+      });
+    }
+
+    function updateVisualizer(data) {
+      var previousNodes = $scope.nodes || [];
+      $scope.nodes = data.nodes;
+      $scope.services = data.services;
+      $scope.tasks = data.tasks;
+      prepareVisualizerData(data.nodes, data.services, data.tasks, previousNodes);
+      if ($scope.state.DisplayResourceAllocations && $scope.state.DisplayActualResourceUsage) {
+        refreshNodeResourceUsage(data.nodes);
+      }
+    }
+
     function setUpdateRepeater() {
       var refreshRate = $scope.state.refreshRate;
       $scope.repeater = $interval(function () {
-        $q.all({
-          nodes: NodeService.nodes(),
-          services: ServiceService.services(),
-          tasks: TaskService.tasks(),
-        })
-          .then(function success(data) {
-            var nodes = data.nodes;
-            $scope.nodes = nodes;
-            var services = data.services;
-            $scope.services = services;
-            var tasks = data.tasks;
-            $scope.tasks = tasks;
-            prepareVisualizerData(nodes, services, tasks);
-          })
+        getClusterData()
+          .then(updateVisualizer)
           .catch(function error(err) {
             stopRepeater();
             Notifications.error('Failure', err, 'Unable to retrieve cluster information');
@@ -102,7 +148,16 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       }
     }
 
-    function assignTasksToNode(nodes, tasks) {
+    function assignTasksToNode(nodes, tasks, previousNodes) {
+      var previousUsageByTask = new Map();
+      previousNodes.forEach(function (node) {
+        (node.Tasks || []).forEach(function (task) {
+          if (task.Id && task.ResourceUsage) {
+            previousUsageByTask.set(task.Id, task.ResourceUsage);
+          }
+        });
+      });
+
       for (var i = 0; i < nodes.length; i++) {
         var node = nodes[i];
         node.Tasks = [];
@@ -111,17 +166,149 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
           var task = tasks[j];
 
           if (task.NodeId === node.Id) {
+            task.ResourceUsage = previousUsageByTask.get(task.Id) || task.ResourceUsage || { cpuCores: null, memoryBytes: null };
             node.Tasks.push(task);
           }
         }
       }
     }
 
-    function prepareVisualizerData(nodes, services, tasks) {
+    function isAllocatedTask(task) {
+      var state = task.Status && task.Status.State;
+      return task.DesiredState !== 'shutdown' && ['complete', 'failed', 'rejected', 'orphaned', 'remove', 'shutdown'].indexOf(state) === -1;
+    }
+
+    function sumTaskResources(tasks, resource, field) {
+      return tasks.reduce(function (total, task) {
+        var resources = task.Spec && task.Spec.Resources;
+        var value = resources && resources[resource] && resources[resource][field];
+        return total + (typeof value === 'number' && isFinite(value) ? value : 0);
+      }, 0);
+    }
+
+    function countTasksWithoutResource(tasks, resource, field) {
+      return tasks.filter(function (task) {
+        var resources = task.Spec && task.Spec.Resources;
+        return !(resources && resources[resource] && typeof resources[resource][field] === 'number');
+      }).length;
+    }
+
+    function allocationForNode(node, capacity, field) {
+      var allocatedTasks = node.Tasks.filter(isAllocatedTask);
+      var reserved = sumTaskResources(allocatedTasks, 'Reservations', field);
+      var limited = sumTaskResources(allocatedTasks, 'Limits', field);
+      var tasksWithoutLimit = countTasksWithoutResource(allocatedTasks, 'Limits', field);
+      var safeCapacity = typeof capacity === 'number' && capacity > 0 ? capacity : 0;
+
+      return {
+        capacity: safeCapacity,
+        reserved: reserved,
+        limited: limited,
+        reservedPercent: safeCapacity ? Math.min((reserved / safeCapacity) * 100, 100) : 0,
+        limitedPercent: safeCapacity ? Math.min((limited / safeCapacity) * 100, 100) : 0,
+        reservedOverCapacity: safeCapacity > 0 && reserved > safeCapacity,
+        limitedOverCapacity: safeCapacity > 0 && limited > safeCapacity,
+        tasksWithoutLimit: tasksWithoutLimit,
+        hasCapacity: safeCapacity > 0,
+      };
+    }
+
+    var resourceUsageRequestInProgress = false;
+
+    function refreshNodeResourceUsage(nodes) {
+      if (resourceUsageRequestInProgress) return $q.when();
+      resourceUsageRequestInProgress = true;
+      var runningTasks = [];
+      nodes.forEach(function (node) {
+        (node.Tasks || []).forEach(function (task) {
+          if (task.Status && task.Status.State === 'running' && task.ContainerId) {
+            runningTasks.push({ node: node, task: task });
+          }
+        });
+      });
+
+      var usageByNode = new Map();
+      return $q.all(runningTasks.map(function (item) {
+        return ContainerService.containerStats(item.task.ContainerId, { nodeName: item.node.Hostname })
+          .then(function (stats) {
+            var taskCpuCores = null;
+            var cpuDelta = stats.CurrentCPUTotalUsage - stats.PreviousCPUTotalUsage;
+            var systemDelta = stats.CurrentCPUSystemUsage - stats.PreviousCPUSystemUsage;
+            if (systemDelta > 0 && cpuDelta >= 0) {
+              taskCpuCores = (cpuDelta / systemDelta) * stats.CPUCores;
+            }
+            var taskMemoryBytes = typeof stats.MemoryUsage === 'number' && isFinite(stats.MemoryUsage) ? stats.MemoryUsage : null;
+            var previousUsage = item.task.ResourceUsage || {};
+            item.task.ResourceUsage = {
+              cpuCores: taskCpuCores !== null ? taskCpuCores : previousUsage.cpuCores,
+              memoryBytes: taskMemoryBytes !== null ? taskMemoryBytes : previousUsage.memoryBytes,
+            };
+
+            var usage = usageByNode.get(item.node.Id) || { cpuCores: 0, memoryBytes: 0, cpuSamples: 0, memorySamples: 0 };
+            if (taskCpuCores !== null) {
+              usage.cpuCores += taskCpuCores;
+              usage.cpuSamples += 1;
+            }
+            if (taskMemoryBytes !== null) {
+              usage.memoryBytes += taskMemoryBytes;
+              usage.memorySamples += 1;
+            }
+            usageByNode.set(item.node.Id, usage);
+          })
+          .catch(function () {
+            // A task can disappear or move while statistics are being collected.
+          });
+      })).then(function () {
+        nodes.forEach(function (node) {
+          var usage = usageByNode.get(node.Id);
+          var allocation = node.ResourceAllocation;
+          if (!allocation) return;
+
+          allocation.cpu.actual = usage && usage.cpuSamples ? usage.cpuCores : null;
+          allocation.cpu.actualPercent = usage && usage.cpuSamples && allocation.cpu.capacity
+            ? Math.min((usage.cpuCores * 1000000000 / allocation.cpu.capacity) * 100, 100)
+            : 0;
+          allocation.memory.actual = usage && usage.memorySamples ? usage.memoryBytes : null;
+          allocation.memory.actualPercent = usage && usage.memorySamples && allocation.memory.capacity
+            ? Math.min((usage.memoryBytes / allocation.memory.capacity) * 100, 100)
+            : 0;
+        });
+        if (!$scope.$destroyed) $scope.$evalAsync();
+      }).finally(function () {
+        resourceUsageRequestInProgress = false;
+      });
+    }
+
+    function assignNodeResourceAllocations(nodes, previousNodes) {
+      var previousAllocations = new Map();
+      previousNodes.forEach(function (node) {
+        if (node.ResourceAllocation) {
+          previousAllocations.set(node.Id, node.ResourceAllocation);
+        }
+      });
+
+      nodes.forEach(function (node) {
+        var previous = previousAllocations.get(node.Id);
+        node.ResourceAllocation = {
+          cpu: allocationForNode(node, node.CPUs, 'NanoCPUs'),
+          memory: allocationForNode(node, node.Memory, 'MemoryBytes'),
+        };
+
+        if (previous) {
+          ['cpu', 'memory'].forEach(function (resource) {
+            node.ResourceAllocation[resource].actual = previous[resource].actual;
+            node.ResourceAllocation[resource].actualPercent = previous[resource].actualPercent;
+          });
+        }
+      });
+    }
+
+    function prepareVisualizerData(nodes, services, tasks, previousNodes) {
       var visualizerData = {};
 
       assignServiceInfo(services, tasks);
-      assignTasksToNode(nodes, tasks);
+      assignTasksToNode(nodes, tasks, previousNodes || []);
+      assignNodeResourceAllocations(nodes, previousNodes || []);
 
       visualizerData.nodes = nodes;
       $scope.visualizerData = visualizerData;
@@ -137,24 +324,20 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       var displayNodeLabels = LocalStorage.getSwarmVisualizerSettings('display_node_labels');
       if (displayNodeLabels !== undefined && displayNodeLabels !== null) $scope.state.DisplayNodeLabels = displayNodeLabels;
 
+      var displayResourceAllocations = LocalStorage.getSwarmVisualizerSettings('display_resource_allocations');
+      if (displayResourceAllocations !== undefined && displayResourceAllocations !== null) $scope.state.DisplayResourceAllocations = displayResourceAllocations;
+
+      var displayActualResourceUsage = LocalStorage.getSwarmVisualizerSettings('display_actual_resource_usage');
+      if (displayActualResourceUsage !== undefined && displayActualResourceUsage !== null) $scope.state.DisplayActualResourceUsage = displayActualResourceUsage;
+
       var refreshRate = LocalStorage.getSwarmVisualizerSettings('refresh_rate');
       if (refreshRate !== undefined && refreshRate !== null) $scope.state.refreshRate = refreshRate;
     }
 
     function initView() {
-      $q.all({
-        nodes: NodeService.nodes(),
-        services: ServiceService.services(),
-        tasks: TaskService.tasks(),
-      })
+      getClusterData()
         .then(function success(data) {
-          var nodes = data.nodes;
-          $scope.nodes = nodes;
-          var services = data.services;
-          $scope.services = services;
-          var tasks = data.tasks;
-          $scope.tasks = tasks;
-          prepareVisualizerData(nodes, services, tasks);
+          updateVisualizer(data);
           setUpdateRepeater();
         })
         .catch(function error(err) {

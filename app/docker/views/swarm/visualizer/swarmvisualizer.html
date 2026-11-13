@@ -148,7 +148,7 @@
                     <span><i class="resource_legend_limit" style="display: inline-block; width: 2px; height: 11px; margin: 0 6px 0 3px; background: #d97706; vertical-align: middle;"></i>Limits: {{ node.ResourceAllocation.cpu.limited / 1000000000 | number: 2 }} cores <pr-icon ng-if="node.ResourceAllocation.cpu.reservedOverCapacity || node.ResourceAllocation.cpu.limitedOverCapacity" icon="'alert-triangle'" size="'xs'" style="color: #b45309;" title="Resource reservations or limits exceed capacity."></pr-icon></span>
                   </div>
                   <div class="resource_metric_note" style="font-size: 11px; color: #888;" ng-if="node.ResourceAllocation.cpu.tasksWithoutLimit">
-                    {{ node.ResourceAllocation.cpu.tasksWithoutLimit }} task(s) have no CPU limit
+                    {{ node.ResourceAllocation.cpu.tasksWithoutLimit }} workload(s) have no CPU limit
                   </div>
                 </div>
 
@@ -172,7 +172,7 @@
                     <span><i class="resource_legend_limit" style="display: inline-block; width: 2px; height: 11px; margin: 0 6px 0 3px; background: #d97706; vertical-align: middle;"></i>Limits: {{ formatMemoryBytes(node.ResourceAllocation.memory.limited) }} <pr-icon ng-if="node.ResourceAllocation.memory.reservedOverCapacity || node.ResourceAllocation.memory.limitedOverCapacity" icon="'alert-triangle'" size="'xs'" style="color: #b45309;" title="Resource reservations or limits exceed capacity."></pr-icon></span>
                   </div>
                   <div class="resource_metric_note" style="font-size: 11px; color: #888;" ng-if="node.ResourceAllocation.memory.tasksWithoutLimit">
-                    {{ node.ResourceAllocation.memory.tasksWithoutLimit }} task(s) have no memory limit
+                    {{ node.ResourceAllocation.memory.tasksWithoutLimit }} workload(s) have no memory limit
                   </div>
                 </div>
               </div>

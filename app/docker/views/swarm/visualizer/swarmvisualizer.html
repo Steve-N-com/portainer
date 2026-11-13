@@ -241,6 +241,34 @@
                 <div>Image: {{ container.Image | hideshasum }}</div>
                 <div>Status: {{ container.StatusText }}</div>
                 <div>Created: {{ container.Created * 1000 | getisodate }}</div>
+                <div class="task_resource_charts" ng-if="state.DisplayResourceAllocations && state.DisplayActualResourceUsage">
+                  <div class="task_resource_metric" style="margin-top: 8px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
+                      <span>CPU</span>
+                      <span ng-if="container.HostConfig.NanoCpus > 0">Limit: {{ container.HostConfig.NanoCpus / 1000000000 | number: 2 }} cores</span>
+                      <span ng-if="!(container.HostConfig.NanoCpus > 0)">No CPU limit</span>
+                    </div>
+                    <div style="height: 10px; position: relative; overflow: hidden; border-radius: 3px; background: #e5e7eb;">
+                      <div ng-if="container.ResourceUsage.cpuCores !== null && container.ResourceUsage.cpuCores !== undefined" ng-style="{ width: Math.min((container.ResourceUsage.cpuCores / (container.HostConfig.NanoCpus > 0 ? container.HostConfig.NanoCpus / 1000000000 : node.ResourceAllocation.cpu.capacity / 1000000000)) * 100, 100) + '%' }" title="Actual usage: {{ container.ResourceUsage.cpuCores | number: 2 }} cores" style="height: 100%; background: #16a34a;"></div>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 3px; font-size: 10px;">
+                      <span><i style="display: inline-block; width: 8px; height: 8px; background: #16a34a; margin-right: 3px;"></i>Actual: {{ container.ResourceUsage.cpuCores === null || container.ResourceUsage.cpuCores === undefined ? 'Unavailable' : (container.ResourceUsage.cpuCores | number: 2) + ' cores' }}</span>
+                    </div>
+                  </div>
+                  <div class="task_resource_metric" style="margin-top: 8px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
+                      <span>Memory</span>
+                      <span ng-if="container.HostConfig.Memory > 0">Limit: {{ formatMemoryBytes(container.HostConfig.Memory) }}</span>
+                      <span ng-if="!(container.HostConfig.Memory > 0)">No memory limit</span>
+                    </div>
+                    <div style="height: 10px; position: relative; overflow: hidden; border-radius: 3px; background: #e5e7eb;">
+                      <div ng-if="container.ResourceUsage.memoryBytes !== null && container.ResourceUsage.memoryBytes !== undefined" ng-style="{ width: Math.min((container.ResourceUsage.memoryBytes / (container.HostConfig.Memory > 0 ? container.HostConfig.Memory : node.ResourceAllocation.memory.capacity)) * 100, 100) + '%' }" title="Actual usage: {{ formatMemoryBytes(container.ResourceUsage.memoryBytes) }}" style="height: 100%; background: #16a34a;"></div>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 3px; font-size: 10px;">
+                      <span><i style="display: inline-block; width: 8px; height: 8px; background: #16a34a; margin-right: 3px;"></i>Actual: {{ container.ResourceUsage.memoryBytes === null || container.ResourceUsage.memoryBytes === undefined ? 'Unavailable' : formatMemoryBytes(container.ResourceUsage.memoryBytes) }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

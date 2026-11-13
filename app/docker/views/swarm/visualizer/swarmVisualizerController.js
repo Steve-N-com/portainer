@@ -189,7 +189,15 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       }
     }
 
-    function assignStandaloneContainersToNode(nodes, containers, tasks) {
+    function assignStandaloneContainersToNode(nodes, containers, tasks, previousNodes) {
+      var previousUsageByContainer = new Map();
+      (previousNodes || []).forEach(function (node) {
+        (node.Containers || []).forEach(function (container) {
+          if (container.Id && container.ResourceUsage) {
+            previousUsageByContainer.set(container.Id, container.ResourceUsage);
+          }
+        });
+      });
       nodes.forEach(function (node) {
         node.Containers = [];
       });
@@ -221,6 +229,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
           });
         });
         if (node) {
+          container.ResourceUsage = previousUsageByContainer.get(container.Id) || container.ResourceUsage || { cpuCores: null, memoryBytes: null };
           node.Containers.push(container);
         }
       });
@@ -275,14 +284,19 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       nodes.forEach(function (node) {
         (node.Tasks || []).forEach(function (task) {
           if (task.Status && task.Status.State === 'running' && task.ContainerId) {
-            runningTasks.push({ node: node, task: task });
+            runningTasks.push({ node: node, task: task, containerId: task.ContainerId });
+          }
+        });
+        (node.Containers || []).forEach(function (container) {
+          if (container.State === 'running' && container.Id) {
+            runningTasks.push({ node: node, container: container, containerId: container.Id });
           }
         });
       });
 
       var usageByNode = new Map();
       return $q.all(runningTasks.map(function (item) {
-        return ContainerService.containerStats(item.task.ContainerId, { nodeName: item.node.Hostname })
+        return ContainerService.containerStats(item.containerId, { nodeName: item.node.Hostname })
           .then(function (stats) {
             var taskCpuCores = null;
             var cpuDelta = stats.CurrentCPUTotalUsage - stats.PreviousCPUTotalUsage;
@@ -291,8 +305,9 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
               taskCpuCores = (cpuDelta / systemDelta) * stats.CPUCores;
             }
             var taskMemoryBytes = typeof stats.MemoryUsage === 'number' && isFinite(stats.MemoryUsage) ? stats.MemoryUsage : null;
-            var previousUsage = item.task.ResourceUsage || {};
-            item.task.ResourceUsage = {
+            var target = item.task || item.container;
+            var previousUsage = target.ResourceUsage || {};
+            target.ResourceUsage = {
               cpuCores: taskCpuCores !== null ? taskCpuCores : previousUsage.cpuCores,
               memoryBytes: taskMemoryBytes !== null ? taskMemoryBytes : previousUsage.memoryBytes,
             };
@@ -361,7 +376,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
 
       assignServiceInfo(services, tasks);
       assignTasksToNode(nodes, tasks, previousNodes || []);
-      assignStandaloneContainersToNode(nodes, containers || [], tasks || []);
+      assignStandaloneContainersToNode(nodes, containers || [], tasks || [], previousNodes || []);
       $scope.hasStandaloneContainers = nodes.some(function (node) {
         return node.Containers.length > 0;
       });

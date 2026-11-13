@@ -128,14 +128,40 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
 
     function updateVisualizer(data) {
       var previousNodes = $scope.nodes || [];
-      $scope.nodes = data.nodes;
-      $scope.services = data.services;
-      $scope.tasks = data.tasks;
-      $scope.containers = data.containers || [];
-      prepareVisualizerData(data.nodes, data.services, data.tasks, $scope.containers, previousNodes);
-      if ($scope.state.DisplayResourceAllocations && $scope.state.DisplayActualResourceUsage) {
-        refreshNodeResourceUsage(data.nodes);
-      }
+      var containers = data.containers || [];
+      var taskContainerIds = (data.tasks || [])
+        .map(function (task) {
+          return task.Status && task.Status.ContainerStatus && task.Status.ContainerStatus.ContainerID;
+        })
+        .filter(Boolean);
+      var standaloneContainers = containers.filter(function (container) {
+        var labels = container.Labels || {};
+        return !labels['com.docker.swarm.service.id'] &&
+          !labels['com.docker.swarm.task.id'] &&
+          taskContainerIds.indexOf(container.Id) === -1 &&
+          container.NodeName;
+      });
+
+      // The Docker containers list endpoint omits HostConfig resource limits.
+      // Inspect standalone containers individually to retrieve their configured limits.
+      return $q.all(standaloneContainers.map(function (container) {
+        return ContainerService.inspect(EndpointProvider.endpointID(), container.Id, { nodeName: container.NodeName })
+          .then(function (details) {
+            container.HostConfig = details.HostConfig || {};
+          })
+          .catch(function () {
+            // Keep rendering usage even if an individual container cannot be inspected.
+          });
+      })).then(function () {
+        $scope.nodes = data.nodes;
+        $scope.services = data.services;
+        $scope.tasks = data.tasks;
+        $scope.containers = containers;
+        prepareVisualizerData(data.nodes, data.services, data.tasks, containers, previousNodes);
+        if ($scope.state.DisplayResourceAllocations && $scope.state.DisplayActualResourceUsage) {
+          refreshNodeResourceUsage(data.nodes);
+        }
+      });
     }
 
     function setUpdateRepeater() {

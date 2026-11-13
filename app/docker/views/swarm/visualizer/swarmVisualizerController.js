@@ -127,7 +127,6 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     }
 
     function updateVisualizer(data) {
-      prepareVisualizerData(data.nodes, data.services, data.tasks, $scope.containers);
       var previousNodes = $scope.nodes || [];
       $scope.nodes = data.nodes;
       $scope.services = data.services;

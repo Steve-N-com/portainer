@@ -286,6 +286,12 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       var standaloneContainers = node.Containers || [];
       var containerLimitField = field === 'NanoCPUs' ? 'NanoCpus' : 'Memory';
       var reserved = sumTaskResources(allocatedTasks, 'Reservations', field);
+      if (field === 'MemoryBytes') {
+        reserved += standaloneContainers.reduce(function (total, container) {
+          var value = container.HostConfig && container.HostConfig.MemoryReservation;
+          return total + (typeof value === 'number' && isFinite(value) && value > 0 ? value : 0);
+        }, 0);
+      }
       var limited = sumTaskResources(allocatedTasks, 'Limits', field) + standaloneContainers.reduce(function (total, container) {
         var value = container.HostConfig && container.HostConfig[containerLimitField];
         return total + (typeof value === 'number' && isFinite(value) && value > 0 ? value : 0);

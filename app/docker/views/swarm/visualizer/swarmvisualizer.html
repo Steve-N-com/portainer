@@ -263,9 +263,11 @@
                     </div>
                     <div style="height: 10px; position: relative; overflow: hidden; border-radius: 3px; background: #e5e7eb;">
                       <div ng-if="container.ResourceUsage.memoryBytes !== null && container.ResourceUsage.memoryBytes !== undefined" ng-style="{ width: Math.min((container.ResourceUsage.memoryBytes / (container.HostConfig.Memory > 0 ? container.HostConfig.Memory : node.ResourceAllocation.memory.capacity)) * 100, 100) + '%' }" title="Actual usage: {{ formatMemoryBytes(container.ResourceUsage.memoryBytes) }}" style="height: 100%; background: #16a34a;"></div>
+                      <div ng-if="container.HostConfig.MemoryReservation > 0" ng-style="{ left: container.HostConfig.MemoryReservation >= (container.HostConfig.Memory > 0 ? container.HostConfig.Memory : node.ResourceAllocation.memory.capacity) ? 'calc(100% - 2px)' : (container.HostConfig.MemoryReservation / (container.HostConfig.Memory > 0 ? container.HostConfig.Memory : node.ResourceAllocation.memory.capacity)) * 100 + '%' }" title="Reserved: {{ formatMemoryBytes(container.HostConfig.MemoryReservation) }}" style="position: absolute; top: -1px; bottom: -1px; width: 2px; background: #d97706;"></div>
                     </div>
                     <div style="display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 3px; font-size: 10px;">
                       <span><i style="display: inline-block; width: 8px; height: 8px; background: #16a34a; margin-right: 3px;"></i>Actual: {{ container.ResourceUsage.memoryBytes === null || container.ResourceUsage.memoryBytes === undefined ? 'Unavailable' : formatMemoryBytes(container.ResourceUsage.memoryBytes) }}</span>
+                      <span><i style="display: inline-block; width: 2px; height: 10px; background: #d97706; margin: 0 6px 0 3px; vertical-align: middle;"></i>Reserved: {{ formatMemoryBytes(container.HostConfig.MemoryReservation || 0) }}</span>
                     </div>
                   </div>
                 </div>

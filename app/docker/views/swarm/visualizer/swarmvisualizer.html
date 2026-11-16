@@ -193,7 +193,8 @@
               >
                 <div class="service_name">
                   {{ task.ServiceName }}
-                  <pr-icon icon="'box'" style="font-size: 16px; vertical-align: middle; margin-left: 4px;" title="Container"></pr-icon>
+                  <img ng-if="task.RepositoryLogoUrl && !task.RepositoryLogoFailed" ng-src="{{ task.RepositoryLogoUrl }}" visualizer-image-fallback="handleRepositoryLogoError(task)" alt="Docker Hub repository logo" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle; margin-left: 4px;" />
+                  <pr-icon ng-if="!task.RepositoryLogoUrl || task.RepositoryLogoFailed" icon="'box'" style="font-size: 16px; vertical-align: middle; margin-left: 4px;" title="Container"></pr-icon>
                 </div>
                 <div>Image: {{ task.Spec.ContainerSpec.Image | hideshasum }}</div>
                 <div>Status: {{ task.Status.State }}</div>
@@ -239,7 +240,8 @@
               >
                 <div class="service_name">
                   {{ container.Names[0] }}
-                  <pr-icon icon="'box'" style="font-size: 16px; vertical-align: middle; margin-left: 4px;" title="Container"></pr-icon>
+                  <img ng-if="container.RepositoryLogoUrl && !container.RepositoryLogoFailed" ng-src="{{ container.RepositoryLogoUrl }}" visualizer-image-fallback="handleRepositoryLogoError(container)" alt="Docker Hub repository logo" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle; margin-left: 4px;" />
+                  <pr-icon ng-if="!container.RepositoryLogoUrl || container.RepositoryLogoFailed" icon="'box'" style="font-size: 16px; vertical-align: middle; margin-left: 4px;" title="Container"></pr-icon>
                   <span class="label label-info">Standalone</span>
                 </div>
                 <div>Image: {{ container.Image | hideshasum }}</div>

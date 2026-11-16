@@ -2,7 +2,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
   '$q',
   '$scope',
   '$document',
-  '$interval',
+  '$timeout',
   'NodeService',
   'ServiceService',
   'TaskService',
@@ -10,7 +10,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
   'EndpointProvider',
   'Notifications',
   'LocalStorage',
-  function ($q, $scope, $document, $interval, NodeService, ServiceService, TaskService, ContainerService, EndpointProvider, Notifications, LocalStorage) {
+  function ($q, $scope, $document, $timeout, NodeService, ServiceService, TaskService, ContainerService, EndpointProvider, Notifications, LocalStorage) {
     $scope.Math = Math;
 
     $scope.formatMemoryBytes = function (bytes) {
@@ -113,7 +113,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     function stopRepeater() {
       var repeater = $scope.repeater;
       if (angular.isDefined(repeater)) {
-        $interval.cancel(repeater);
+        $timeout.cancel(repeater);
       }
     }
 
@@ -126,8 +126,16 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       });
     }
 
+    var standaloneContainerInspectionCache = new Map();
+
     function updateVisualizer(data) {
       var previousNodes = $scope.nodes || [];
+      var previousContainers = $scope.containers || [];
+      previousContainers.forEach(function (container) {
+        if (container.Id && container.HostConfig) {
+          standaloneContainerInspectionCache.set(container.Id, container.HostConfig);
+        }
+      });
       var containers = data.containers || [];
       var taskContainerIds = (data.tasks || [])
         .map(function (task) {
@@ -143,11 +151,25 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       });
 
       // The Docker containers list endpoint omits HostConfig resource limits.
-      // Inspect standalone containers individually to retrieve their configured limits.
+      // Reuse inspected configuration while the container ID remains unchanged.
+      var currentStandaloneContainerIds = new Set(standaloneContainers.map(function (container) { return container.Id; }));
+      standaloneContainerInspectionCache.forEach(function (hostConfig, containerId) {
+        if (!currentStandaloneContainerIds.has(containerId)) {
+          standaloneContainerInspectionCache.delete(containerId);
+        }
+      });
+
       return $q.all(standaloneContainers.map(function (container) {
+        var cachedHostConfig = standaloneContainerInspectionCache.get(container.Id);
+        if (cachedHostConfig) {
+          container.HostConfig = cachedHostConfig;
+          return $q.when();
+        }
+
         return ContainerService.inspect(EndpointProvider.endpointID(), container.Id, { nodeName: container.NodeName })
           .then(function (details) {
             container.HostConfig = details.HostConfig || {};
+            standaloneContainerInspectionCache.set(container.Id, container.HostConfig);
           })
           .catch(function () {
             // Keep rendering usage even if an individual container cannot be inspected.
@@ -159,16 +181,22 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
         $scope.containers = containers;
         prepareVisualizerData(data.nodes, data.services, data.tasks, containers, previousNodes);
         if ($scope.state.DisplayResourceAllocations && $scope.state.DisplayActualResourceUsage) {
-          refreshNodeResourceUsage(data.nodes);
+          return refreshNodeResourceUsage(data.nodes);
         }
+        return $q.when();
       });
     }
 
     function setUpdateRepeater() {
+      if ($scope.$destroyed) return;
+
       var refreshRate = $scope.state.refreshRate;
-      $scope.repeater = $interval(function () {
+      $scope.repeater = $timeout(function () {
         getClusterData()
           .then(updateVisualizer)
+          .then(function () {
+            setUpdateRepeater();
+          })
           .catch(function error(err) {
             stopRepeater();
             Notifications.error('Failure', err, 'Unable to retrieve cluster information');
@@ -451,8 +479,8 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
 
     function initView() {
       getClusterData()
-        .then(function success(data) {
-          updateVisualizer(data);
+        .then(updateVisualizer)
+        .then(function success() {
           setUpdateRepeater();
         })
         .catch(function error(err) {

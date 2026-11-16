@@ -191,7 +191,10 @@
                 style="border: 2px solid {{ task.ServiceId | visualizerTaskBorderColor }}"
                 ng-repeat="task in node.Tasks | orderBy: 'ServiceName' | filter: (state.DisplayOnlyRunningTasks || '') && { Status: { State: 'running' } }"
               >
-                <div class="service_name">{{ task.ServiceName }}</div>
+                <div class="service_name">
+                  {{ task.ServiceName }}
+                  <pr-icon icon="'docker'" style="font-size: 16px; vertical-align: middle; margin-left: 4px;" title="Container image"></pr-icon>
+                </div>
                 <div>Image: {{ task.Spec.ContainerSpec.Image | hideshasum }}</div>
                 <div>Status: {{ task.Status.State }}</div>
                 <div>Update: {{ task.Updated | getisodate }}</div>
@@ -236,6 +239,7 @@
               >
                 <div class="service_name">
                   {{ container.Names[0] }}
+                  <pr-icon icon="'docker'" style="font-size: 16px; vertical-align: middle; margin-left: 4px;" title="Container image"></pr-icon>
                   <span class="label label-info">Standalone</span>
                 </div>
                 <div>Image: {{ container.Image | hideshasum }}</div>

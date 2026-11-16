@@ -14,7 +14,6 @@ angular.module('portainer.docker').directive('visualizerImageFallback', ['$parse
 
 angular.module('portainer.docker').controller('SwarmVisualizerController', [
   '$q',
-  '$http',
   '$scope',
   '$document',
   '$timeout',
@@ -25,7 +24,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
   'EndpointProvider',
   'Notifications',
   'LocalStorage',
-  function ($q, $http, $scope, $document, $timeout, NodeService, ServiceService, TaskService, ContainerService, EndpointProvider, Notifications, LocalStorage) {
+  function ($q, $scope, $document, $timeout, NodeService, ServiceService, TaskService, ContainerService, EndpointProvider, Notifications, LocalStorage) {
     $scope.Math = Math;
 
     $scope.formatMemoryBytes = function (bytes) {
@@ -162,9 +161,31 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     function fetchDockerHubRepositoryLogo(repository) {
       var key = repository.namespace + '/' + repository.name;
       if (dockerHubLogoCache.has(key)) return dockerHubLogoCache.get(key);
-      var request = $http.get('/api/system/dockerhub/repository-logo', { params: repository })
+      var repositoryPath = repository.namespace === 'library'
+        ? '/_/' + encodeURIComponent(repository.name)
+        : '/r/' + encodeURIComponent(repository.namespace) + '/' + encodeURIComponent(repository.name);
+      var request = Promise.resolve()
+        .then(function () {
+          return fetch('https://hub.docker.com' + repositoryPath, { credentials: 'omit' });
+        })
         .then(function (response) {
-          return response.data && response.data.logoUrl ? response.data.logoUrl : dockerHubSiteIcon;
+          if (!response.ok) throw new Error('Docker Hub repository page request failed');
+          return response.text();
+        })
+        .then(function (html) {
+          var parsedDocument = new DOMParser().parseFromString(html, 'text/html');
+          var avatar = parsedDocument.querySelector('div.MuiAvatar-root');
+          var avatarImage = avatar && avatar.querySelector('img');
+          var imageUrl = avatarImage && (avatarImage.getAttribute('src') || avatarImage.getAttribute('data-src'));
+          if (!imageUrl && avatarImage && avatarImage.getAttribute('srcset')) {
+            imageUrl = avatarImage.getAttribute('srcset').split(',')[0].trim().split(/\s+/)[0];
+          }
+          if (!imageUrl && avatar) {
+            var backgroundImage = avatar.style.backgroundImage || '';
+            var backgroundMatch = backgroundImage.match(/url\(["']?(.*?)["']?\)/);
+            imageUrl = backgroundMatch && backgroundMatch[1];
+          }
+          return imageUrl ? new URL(imageUrl, 'https://hub.docker.com').href : dockerHubSiteIcon;
         })
         .catch(function () { return dockerHubSiteIcon; });
       dockerHubLogoCache.set(key, request);

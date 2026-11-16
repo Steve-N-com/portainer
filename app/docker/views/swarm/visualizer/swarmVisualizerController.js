@@ -181,8 +181,9 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
         $scope.containers = containers;
         prepareVisualizerData(data.nodes, data.services, data.tasks, containers, previousNodes);
         if ($scope.state.DisplayResourceAllocations && $scope.state.DisplayActualResourceUsage) {
-          refreshNodeResourceUsage(data.nodes);
+          return refreshNodeResourceUsage(data.nodes);
         }
+        return $q.when();
       });
     }
 

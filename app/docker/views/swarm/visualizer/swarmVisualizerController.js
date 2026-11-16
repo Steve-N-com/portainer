@@ -150,7 +150,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       var parts = imageName.split('/');
       var firstPart = parts[0];
       if (parts.length > 1 && (firstPart.indexOf('.') !== -1 || firstPart.indexOf(':') !== -1 || firstPart === 'localhost')) {
-        if (firstPart !== 'docker.io' && firstPart !== 'index.docker.io') return null;
+        if (['docker.io', 'index.docker.io', 'registry-1.docker.io', 'registry.hub.docker.com'].indexOf(firstPart) === -1) return null;
         parts.shift();
       }
       if (parts.length === 1) return { namespace: 'library', name: parts[0].split(':')[0] };
@@ -164,17 +164,26 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
       var repositoryPath = repository.namespace === 'library'
         ? '/_/' + encodeURIComponent(repository.name)
         : '/r/' + encodeURIComponent(repository.namespace) + '/' + encodeURIComponent(repository.name);
-      var request = fetch('https://hub.docker.com' + repositoryPath, { credentials: 'omit' })
+      var request = Promise.resolve()
+        .then(function () {
+          return fetch('https://hub.docker.com' + repositoryPath, { credentials: 'omit' });
+        })
         .then(function (response) {
           if (!response.ok) throw new Error('Docker Hub repository page request failed');
           return response.text();
         })
         .then(function (html) {
           var parsedDocument = new DOMParser().parseFromString(html, 'text/html');
-          var avatarImage = parsedDocument.querySelector('div.MuiAvatar-root img');
+          var avatar = parsedDocument.querySelector('div.MuiAvatar-root');
+          var avatarImage = avatar && avatar.querySelector('img');
           var imageUrl = avatarImage && (avatarImage.getAttribute('src') || avatarImage.getAttribute('data-src'));
           if (!imageUrl && avatarImage && avatarImage.getAttribute('srcset')) {
             imageUrl = avatarImage.getAttribute('srcset').split(',')[0].trim().split(/\s+/)[0];
+          }
+          if (!imageUrl && avatar) {
+            var backgroundImage = avatar.style.backgroundImage || '';
+            var backgroundMatch = backgroundImage.match(/url\(["']?(.*?)["']?\)/);
+            imageUrl = backgroundMatch && backgroundMatch[1];
           }
           return imageUrl ? new URL(imageUrl, 'https://hub.docker.com').href : dockerHubSiteIcon;
         })

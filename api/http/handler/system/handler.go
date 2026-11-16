@@ -50,6 +50,7 @@ func NewHandler(bouncer security.BouncerService,
 	authenticatedRouter.Handle("/version", httperror.LoggerHandler(h.version)).Methods(http.MethodGet)
 	authenticatedRouter.Handle("/nodes", httperror.LoggerHandler(h.systemNodesCount)).Methods(http.MethodGet)
 	authenticatedRouter.Handle("/info", httperror.LoggerHandler(h.systemInfo)).Methods(http.MethodGet)
+	authenticatedRouter.Handle("/dockerhub/repository-logo", httperror.LoggerHandler(h.dockerHubRepositoryLogo)).Methods(http.MethodGet)
 
 	publicRouter := router.PathPrefix("/").Subrouter()
 	publicRouter.Use(bouncer.PublicAccess)

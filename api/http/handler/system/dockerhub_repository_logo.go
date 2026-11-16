@@ -2,6 +2,7 @@ package system
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -70,12 +71,11 @@ func (handler *Handler) dockerHubRepositoryLogo(w http.ResponseWriter, r *http.R
 	// Limit the HTML read so an unexpected upstream response cannot consume
 	// unbounded memory. Repository pages are normally considerably smaller.
 	const maxPageSize = 4 << 20
-	page := make([]byte, maxPageSize)
-	n, readErr := upstreamResponse.Body.Read(page)
-	if readErr != nil && n == 0 {
+	page, err := io.ReadAll(io.LimitReader(upstreamResponse.Body, maxPageSize))
+	if err != nil {
 		return response.JSON(w, dockerHubRepositoryLogoResponse{})
 	}
-	html := string(page[:n])
+	html := string(page)
 
 	match := dockerHubAvatarImage.FindStringSubmatch(html)
 	if len(match) < 2 {
@@ -85,17 +85,15 @@ func (handler *Handler) dockerHubRepositoryLogo(w http.ResponseWriter, r *http.R
 		return response.JSON(w, dockerHubRepositoryLogoResponse{})
 	}
 
-	logoURL, err := url.Parse(strings.TrimSpace(match[1]))
+	baseURL, err := url.Parse(dockerHubRepositoryPage)
 	if err != nil {
 		return response.JSON(w, dockerHubRepositoryLogoResponse{})
 	}
-	logoURL = url.URL{}
 	parsedLogoURL, err := url.Parse(strings.TrimSpace(match[1]))
 	if err != nil {
 		return response.JSON(w, dockerHubRepositoryLogoResponse{})
 	}
-	logoURL = *url.ParseRequestURI(dockerHubRepositoryPage)
-	resolved := logoURL.ResolveReference(parsedLogoURL)
+	resolved := baseURL.ResolveReference(parsedLogoURL)
 	if resolved.Scheme != "https" && resolved.Scheme != "http" {
 		return response.JSON(w, dockerHubRepositoryLogoResponse{})
 	}

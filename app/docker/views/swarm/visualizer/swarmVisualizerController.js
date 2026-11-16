@@ -1,3 +1,17 @@
+angular.module('portainer.docker').directive('visualizerImageFallback', ['$parse', function ($parse) {
+  return {
+    restrict: 'A',
+    link: function (scope, element, attrs) {
+      var onError = $parse(attrs.visualizerImageFallback);
+      var handleError = function () {
+        scope.$evalAsync(function () { onError(scope); });
+      };
+      element.on('error', handleError);
+      scope.$on('$destroy', function () { element.off('error', handleError); });
+    },
+  };
+}]);
+
 angular.module('portainer.docker').controller('SwarmVisualizerController', [
   '$q',
   '$scope',
@@ -127,6 +141,72 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
     }
 
     var standaloneContainerInspectionCache = new Map();
+    var dockerHubLogoCache = new Map();
+    var dockerHubSiteIcon = 'https://hub.docker.com/favicon.ico';
+
+    function dockerHubRepositoryFromImage(image) {
+      if (typeof image !== 'string' || !image.trim()) return null;
+      var imageName = image.trim().split('@')[0];
+      var parts = imageName.split('/');
+      var firstPart = parts[0];
+      if (parts.length > 1 && (firstPart.indexOf('.') !== -1 || firstPart.indexOf(':') !== -1 || firstPart === 'localhost')) {
+        if (['docker.io', 'index.docker.io', 'registry-1.docker.io', 'registry.hub.docker.com'].indexOf(firstPart) === -1) return null;
+        parts.shift();
+      }
+      if (parts.length === 1) return { namespace: 'library', name: parts[0].split(':')[0] };
+      if (parts.length === 2) return { namespace: parts[0], name: parts[1].split(':')[0] };
+      return null;
+    }
+
+    function fetchDockerHubRepositoryLogo(repository) {
+      var key = repository.namespace + '/' + repository.name;
+      if (dockerHubLogoCache.has(key)) return dockerHubLogoCache.get(key);
+      var repositoryPath = repository.namespace === 'library'
+        ? '/_/' + encodeURIComponent(repository.name)
+        : '/r/' + encodeURIComponent(repository.namespace) + '/' + encodeURIComponent(repository.name);
+      var request = Promise.resolve()
+        .then(function () {
+          return fetch('https://hub.docker.com' + repositoryPath, { credentials: 'omit' });
+        })
+        .then(function (response) {
+          if (!response.ok) throw new Error('Docker Hub repository page request failed');
+          return response.text();
+        })
+        .then(function (html) {
+          var parsedDocument = new DOMParser().parseFromString(html, 'text/html');
+          var avatar = parsedDocument.querySelector('div.MuiAvatar-root');
+          var avatarImage = avatar && avatar.querySelector('img');
+          var imageUrl = avatarImage && (avatarImage.getAttribute('src') || avatarImage.getAttribute('data-src'));
+          if (!imageUrl && avatarImage && avatarImage.getAttribute('srcset')) {
+            imageUrl = avatarImage.getAttribute('srcset').split(',')[0].trim().split(/\s+/)[0];
+          }
+          if (!imageUrl && avatar) {
+            var backgroundImage = avatar.style.backgroundImage || '';
+            var backgroundMatch = backgroundImage.match(/url\(["']?(.*?)["']?\)/);
+            imageUrl = backgroundMatch && backgroundMatch[1];
+          }
+          return imageUrl ? new URL(imageUrl, 'https://hub.docker.com').href : dockerHubSiteIcon;
+        })
+        .catch(function () { return dockerHubSiteIcon; });
+      dockerHubLogoCache.set(key, request);
+      return request;
+    }
+
+    function assignDockerHubLogo(workload, image) {
+      var repository = dockerHubRepositoryFromImage(image);
+      workload.RepositoryLogoUrl = null;
+      workload.RepositoryLogoFailed = false;
+      if (!repository) return;
+      fetchDockerHubRepositoryLogo(repository).then(function (logoUrl) {
+        workload.RepositoryLogoUrl = logoUrl;
+        if (!$scope.$destroyed) $scope.$evalAsync();
+      });
+    }
+
+    $scope.handleRepositoryLogoError = function (workload) {
+      if (workload.RepositoryLogoUrl !== dockerHubSiteIcon) workload.RepositoryLogoUrl = dockerHubSiteIcon;
+      else workload.RepositoryLogoFailed = true;
+    };
 
     function updateVisualizer(data) {
       var previousNodes = $scope.nodes || [];
@@ -179,6 +259,12 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
         $scope.services = data.services;
         $scope.tasks = data.tasks;
         $scope.containers = containers;
+        (data.tasks || []).forEach(function (task) {
+          assignDockerHubLogo(task, task.Spec && task.Spec.ContainerSpec && task.Spec.ContainerSpec.Image);
+        });
+        standaloneContainers.forEach(function (container) {
+          assignDockerHubLogo(container, container.Image);
+        });
         prepareVisualizerData(data.nodes, data.services, data.tasks, containers, previousNodes);
         if ($scope.state.DisplayResourceAllocations && $scope.state.DisplayActualResourceUsage) {
           return refreshNodeResourceUsage(data.nodes);

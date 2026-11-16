@@ -199,10 +199,6 @@ input[type='checkbox'] {
   text-transform: uppercase;
 }
 
-.widget .widget-body table.description-table {
-  table-layout: fixed;
-}
-
 .template-widget {
   height: 100%;
 }
@@ -519,7 +515,7 @@ input[type='checkbox'] {
 .visualizer_container .node .tasks .task .service_name {
   text-align: center;
   margin-bottom: 5px;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: bold;
 }
 

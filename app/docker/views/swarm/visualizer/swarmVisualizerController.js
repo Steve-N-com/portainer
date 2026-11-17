@@ -165,22 +165,17 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
         'docker.elastic.co': 'elastic.co',
         'ghcr.io': 'github.com',
       }[registry] || registry;
-      // Load the favicon as an image. Fetching it first would require CORS
-      // support from the registry, which many registries do not provide.
-      var request = Promise.resolve('https://' + faviconHost + '/favicon.ico');
-      repositoryFaviconCache.set(registry, request);
-      return request;
+      var faviconUrl = 'https://' + faviconHost + '/favicon.ico';
+      repositoryFaviconCache.set(registry, faviconUrl);
+      return faviconUrl;
     }
 
     function assignRepositoryFavicon(workload, image) {
       var registry = registryFromImage(image);
-      workload.RepositoryLogoUrl = null;
+      if (!registry || workload.RepositoryRegistry === registry) return;
+      workload.RepositoryRegistry = registry;
+      workload.RepositoryLogoUrl = fetchRepositoryFavicon(registry);
       workload.RepositoryLogoFailed = false;
-      if (!registry) return;
-      fetchRepositoryFavicon(registry).then(function (faviconUrl) {
-        workload.RepositoryLogoUrl = faviconUrl;
-        if (!$scope.$destroyed) $scope.$evalAsync();
-      });
     }
 
     $scope.handleRepositoryLogoError = function (workload) {

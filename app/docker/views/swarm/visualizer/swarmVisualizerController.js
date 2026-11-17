@@ -160,9 +160,14 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
 
     function fetchRepositoryFavicon(registry) {
       if (repositoryFaviconCache.has(registry)) return repositoryFaviconCache.get(registry);
+      // Some registries use the favicon of their parent service instead.
+      var faviconHost = {
+        'docker.elastic.co': 'elastic.co',
+        'ghcr.io': 'github.com',
+      }[registry] || registry;
       // Load the favicon as an image. Fetching it first would require CORS
       // support from the registry, which many registries do not provide.
-      var request = Promise.resolve('https://' + registry + '/favicon.ico');
+      var request = Promise.resolve('https://' + faviconHost + '/favicon.ico');
       repositoryFaviconCache.set(registry, request);
       return request;
     }

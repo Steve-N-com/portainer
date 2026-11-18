@@ -274,7 +274,15 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
 
           if (task.ServiceId === service.Id) {
             task.ServiceName = service.Name;
-            task.StackName = service.Spec && service.Spec.Labels && service.Spec.Labels['com.docker.stack.namespace'];
+            var serviceLabels = (service.Spec && service.Spec.Labels) || service.Labels || {};
+            var stackName = serviceLabels['com.docker.stack.namespace'];
+            if (!stackName && service.Name) {
+              var stackNameSeparator = service.Name.indexOf('_');
+              if (stackNameSeparator > 0) {
+                stackName = service.Name.substring(0, stackNameSeparator);
+              }
+            }
+            task.StackName = stackName;
           }
         }
       }

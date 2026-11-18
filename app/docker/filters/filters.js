@@ -36,8 +36,8 @@ angular
   })
   .filter('visualizerTaskBorderColor', function () {
     'use strict';
-    return function (str) {
-      var hash = strToHash(str);
+    return function (stackName) {
+      var hash = strToHash(stackName);
       var color = hashToHexColor(hash);
       return color;
     };

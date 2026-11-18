@@ -188,7 +188,7 @@
             <div class="tasks">
               <div
                 class="task task_{{ task.Status.State | visualizerTask }}"
-                style="border: 2px solid {{ task.ServiceId | visualizerTaskBorderColor }}"
+                style="border: 2px solid {{ (task.StackName || task.ServiceName) | visualizerTaskBorderColor }}"
                 ng-repeat="task in node.Tasks | orderBy: 'ServiceName' | filter: (state.DisplayOnlyRunningTasks || '') && { Status: { State: 'running' } }"
               >
                 <div class="service_name">

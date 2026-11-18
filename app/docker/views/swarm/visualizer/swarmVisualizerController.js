@@ -274,6 +274,7 @@ angular.module('portainer.docker').controller('SwarmVisualizerController', [
 
           if (task.ServiceId === service.Id) {
             task.ServiceName = service.Name;
+            task.StackName = service.Spec && service.Spec.Labels && service.Spec.Labels['com.docker.stack.namespace'];
           }
         }
       }
